@@ -1,0 +1,28 @@
+@startuml context
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Container.puml
+
+'LAYOUT_AS_SKETCH()
+
+'Person(user,"User")
+System_Boundary(c1,"DemoData") {
+  Container(swagger,"Swagger definition","JSON")
+  Container(scaffolding,"Config scaffolding","Clojure")
+  Container(config,"Generator Config","JSON")
+  Container(generator,"Data Generator","Clojure")
+  Container(data,"Entity Data","JSON")
+  Container(publisher,"Data publisher","Clojure")
+  Container(resources,"Onderwijs Catalogus Resources","OOAPI")
+}
+
+
+'Rel(user,scaffolding,"Runs")
+Rel(scaffolding,swagger,"Uses","Filesystem")
+Rel(scaffolding,config,"Generates","Filesystem")
+'Rel(user,config,"Adapts","Text editor")
+Rel(generator,config,"Uses","Filesystem")
+'Rel(user,generator,"Runs")
+Rel(generator,data,"Generates","Filesystem")
+Rel(publisher,data,"Uses","Filesystem")
+Rel(publisher,resources,"Publishes","HTTP")
+
+@enduml
