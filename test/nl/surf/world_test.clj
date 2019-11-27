@@ -5,10 +5,31 @@
 
 (deftest sort-attrs
   (are [res attrs] (= res (sut/sort-attrs attrs))
-    [] #{}
+    [] []
 
-    [{:name :pig/name} {:name :dog/name :deps [:pig/name]} {:name :cat/name :deps [:dog/name]}]
-    #{{:name :cat/name :deps [:dog/name]} {:name :dog/name :deps [:pig/name]} {:name :pig/name}}))
+    [{:name :a}
+     {:name :b :deps [:a]}
+     {:name :c :deps [:b]}
+     {:name :d :deps [:c]}]
+    [{:name :c :deps [:b]}
+     {:name :b :deps [:a]}
+     {:name :a}
+     {:name :d :deps [:c]}]
+
+    [{:name :a}
+     {:name :b}
+     {:name :d :deps [:a]}
+     {:name :c :deps [:a :b]}
+     {:name :e :deps [:b]}]
+    [{:name :c :deps [:a :b]}
+     {:name :a}
+     {:name :d :deps [:a]}
+     {:name :e :deps [:b]}
+     {:name :b}])
+
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"circular dependency detected"
+                        (sut/sort-attrs #{{:name :a :deps [:b]}
+                                          {:name :b :deps [:a]}}))))
 
 (deftest gen
   (let [attrs  #{{:name      :cat/id

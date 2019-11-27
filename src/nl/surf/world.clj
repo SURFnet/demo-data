@@ -5,22 +5,27 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn sort-attrs
-  "Sort `attrs` to ensure dependencies are met."
-  [attrs]
-  (sort (fn [a b]
-          (cond
-            ;; `a` depends on `b`
-            ((set (:deps a)) (:name b))
-            1
+(let [independent? (fn [attr] (-> attr :deps empty?))
+      dependent?   (complement independent?)
+      remove-dep   (fn [name attr] (update attr :deps #(disj (set %1) %2) name))
+      pick-attr    (fn [attrs name] (->> attrs (filter #(= name (:name %))) first))]
 
-            ;; `b` depends on `a`
-            ((set (:deps b)) (:name a))
-            -1
+  (defn sort-attrs
+    "Sort `attrs` to ensure dependencies are met.  Uses Kahn's algorithm, see
+  also: https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm"
+    [attrs]
+    (loop [dependent   (filter dependent? attrs)
+           independent (filter independent? attrs)
+           ordered     []]
+      (if-let [attr (first independent)]
+        (let [attrs (map (partial remove-dep (:name attr)) dependent)]
+          (recur (filter dependent? attrs)
+                 (into (vec (rest independent)) (filter independent? attrs))
+                 (conj ordered (:name attr))))
 
-            :else
-            0))
-        attrs))
+        (if (empty? dependent)
+          (map (partial pick-attr attrs) ordered)
+          (throw (ex-info "circular dependency detected" {:attributes dependent})))))))
 
 (defn get-relation
   "Get relation for `entity` from `world` of `type`."
