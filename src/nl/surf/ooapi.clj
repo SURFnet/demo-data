@@ -1,6 +1,7 @@
 (ns nl.surf.ooapi
   (:require [nl.surf.generators :as gen]
             [nl.surf.world :as world]
+            [nl.surf.constraints :as constraints]
             [clojure.data.generators :as data.generators]
             [clojure.string :as string]))
 
@@ -15,7 +16,7 @@
 (def attributes
   #{{:name      :course/courseId
      :generator gen/int
-     :constraints [gen/unique]}
+     :constraints [constraints/unique]}
     {:name      :course/name ;; TODO from list of names, depends on educational programme
      :generator gen/string}
     {:name      :course/abbreviation

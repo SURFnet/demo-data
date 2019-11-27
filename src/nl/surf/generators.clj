@@ -35,10 +35,3 @@
   [coll]
   (fn [_]
     (apply gen/one-of coll)))
-
-;; constraints
-
-(defn unique
-  [{:keys [world attr]} val]
-  (let [entity-type (-> attr :name namespace keyword)]
-    (not-any? #(= % val) (map (:name attr) (get world entity-type)))))
