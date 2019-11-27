@@ -26,4 +26,9 @@
                            {:person 10})]
       (is (= 10 (count (:person world))))
       (is (every? ids (map :person/id (:person world))))
-      (is (every? #{1} (vals (frequencies (map :person/id (:person world)))))))))
+      (is (every? #{1} (vals (frequencies (map :person/id (:person world))))))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unable to satisfy constraints"
+                            (world/gen #{{:name        :person/id
+                                          :generator   (generators/one-of ids)
+                                          :constraints [generators/unique]}}
+                                       {:person 11}))))))
