@@ -29,3 +29,14 @@
         result (sut/gen attrs dist)]
     (is (= 4 (-> result :cat count)))
     (is (= 3 (-> result :person count)))))
+
+(deftest test-compose-constraints
+  (let [constraint (#'nl.surf.world/compose-constraints [(fn [_ v]
+                                                           (pos? v))
+                                                         (fn [_ v]
+                                                           (even? v))])]
+    (are [b v] (= b (constraint {} v))
+      false 33
+      true  34
+      false 0
+      false -2)))

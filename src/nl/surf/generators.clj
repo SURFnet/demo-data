@@ -1,12 +1,15 @@
 (ns nl.surf.generators
   (:require [clojure.data.generators :as gen]
-            [clojure.spec.alpha :as s]))
+            [clojure.spec.alpha :as s])
+  (:refer-clojure :exclude [int]))
 
 (s/def ::name qualified-keyword?)
 (s/def ::deps (s/coll-of ::name))
+(s/def ::constraints (s/coll-of fn?))
 
 (s/def ::attr (s/keys :req-un [::name ::generator]
-                      :opt-un [::deps]))
+                      :opt-un [::deps ::constraints]))
+
 (s/def ::world (s/map-of keyword? (s/coll-of ::entity)))
 
 (s/def ::gen-state (s/keys :req-un [::entity ::attr ::world]))
@@ -23,3 +26,19 @@
 (defn string
   [_]
   (gen/string))
+
+(defn int
+  [_]
+  (gen/int))
+
+(defn one-of
+  [coll]
+  (fn [_]
+    (apply gen/one-of coll)))
+
+;; constraints
+
+(defn unique
+  [{:keys [world attr]} val]
+  (let [entity-type (keyword (name (namespace (:name attr))))]
+    (not-any? #(= % val) (map (:name attr) (get world entity-type)))))

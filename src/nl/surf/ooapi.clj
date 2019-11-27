@@ -6,6 +6,7 @@
 
 (defn abbreviate
   [name]
+  {:pre [(seq name)]}
   (->> (string/split name #"[^a-zA-Z]")
        (map first)
        (apply str)
@@ -13,7 +14,8 @@
 
 (def attributes
   #{{:name      :course/courseId
-     :generator gen/uuid}
+     :generator gen/int
+     :constraints [gen/unique]}
     {:name      :course/name ;; TODO from list of names, depends on educational programme
      :generator gen/string}
     {:name      :course/abbreviation
