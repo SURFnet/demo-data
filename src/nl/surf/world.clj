@@ -124,11 +124,11 @@
   "Generate all properties for `attr`"
   [world attr]
   (let [entity-type (-> attr :name namespace keyword)]
-    ; slightly convoluted because we need every call to `gen-attr` to
-    ; have access to the full world-state up till now, including
-    ; previous calls to `gen-attr` for the same attribute (earlier
-    ; entities) to make it possible to implement uniqueness as a
-    ; constraint.
+    ;; slightly convoluted because we need every call to `gen-attr` to
+    ;; have access to the full world-state up till now, including
+    ;; previous calls to `gen-attr` for the same attribute (earlier
+    ;; entities) to make it possible to implement uniqueness as a
+    ;; constraint.
     (reduce (fn [w i]
               (update-in w [entity-type i]
                          #(gen-attr w % attr)))
@@ -146,8 +146,8 @@
   [attrs dist]
   ;; TODO: check that keys in dist occur in attrs namespaces
   (let [world (reduce (fn [m [type amount]]
-                        ; entities needs to be a vector so we can
-                        ; update-in specific entities
+                        ;; entities needs to be a vector so we can
+                        ;; update-in specific entities
                         (assoc m type (vec (repeatedly amount
                                                        (fn [] {:_id (uuid)})))))
                       {}

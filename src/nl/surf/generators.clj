@@ -40,5 +40,5 @@
 
 (defn unique
   [{:keys [world attr]} val]
-  (let [entity-type (keyword (name (namespace (:name attr))))]
+  (let [entity-type (-> attr :name namespace keyword)]
     (not-any? #(= % val) (map (:name attr) (get world entity-type)))))
