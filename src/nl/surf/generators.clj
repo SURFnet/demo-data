@@ -1,10 +1,25 @@
 (ns nl.surf.generators
-  (:require [clojure.data.generators :as gen]))
+  (:require [clojure.data.generators :as gen]
+            [clojure.spec.alpha :as s]))
 
-(defn gen-uniq-id [_]
-  (str (java.util.UUID/randomUUID)))
+(s/def ::name qualified-keyword?)
+(s/def ::deps (s/coll-of ::name))
 
-(def names #{"Fred" "Wilma" "Pebbles" "Dino" "Barney" "Betty" "Bamm-Bamm" "Roxy" "Hoppy" "Pearl" "Stoney" "Joe"})
+(s/def ::attr (s/keys :req-un [::name ::generator]
+                      :opt-un [::deps]))
+(s/def ::world (s/map-of keyword? (s/coll-of ::entity)))
 
-(defn gen-name [_]
-  (-> names shuffle first))
+(s/def ::gen-state (s/keys :req-un [::entity ::attr ::world]))
+
+(s/def ::generator (s/fspec :args (s/cat :state ::gen-state)))
+
+(s/def ::_id uuid?)
+(s/def ::entity (s/keys :opt-un [::_id]))
+
+(defn uuid
+  [_]
+  (gen/uuid))
+
+(defn string
+  [_]
+  (gen/string))
