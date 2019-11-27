@@ -95,6 +95,7 @@
 (defn gen
   "Generate a world given `attrs` and `dist`"
   [attrs dist]
+  ;; TODO: check that keys in dist occur in attrs namespaces
   (let [world (reduce (fn [m [type amount]]
                         (assoc m type (repeatedly amount
                                                   (fn [] {:_id (uuid)}))))

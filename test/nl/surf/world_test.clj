@@ -12,7 +12,7 @@
 
 (deftest gen
   (let [attrs  #{{:name      :cat/id
-                  :generator gen/gen-uniq-id}
+                  :generator gen/uuid}
                  {:name      :cat/name
                   :generator (fn [state]
                                (str (-> (sut/get-relation state :person)
@@ -21,9 +21,9 @@
                  {:name :cat/owner-id
                   :deps [:person/id]}
                  {:name      :person/id
-                  :generator gen/gen-uniq-id}
+                  :generator gen/uuid}
                  {:name      :person/name
-                  :generator gen/gen-name}}
+                  :generator gen/uuid}}
         dist   {:cat    4
                 :person 3}
         result (sut/gen attrs dist)]
