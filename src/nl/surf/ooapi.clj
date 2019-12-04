@@ -13,9 +13,29 @@
        (apply str)
        (string/upper-case)))
 
+(def address-generator
+  (gen/format "%s %d\n%d %c%c  %s"
+              (-> "nl/street-names.txt" gen/split-resource-lines gen/one-of)
+              (gen/int 1 200)
+              (gen/int 1011 9999)
+              (gen/char \A \Z)
+              (gen/char \A \Z)
+              (fn [{{city :institution/address-city} :entity}] city)))
+
 (def attributes
-  #{{:name      :course/courseId
-     :generator (gen/int)
+  #{{:name      :institution/name
+     :generator (gen/format "%s van %s"
+                            (gen/one-of ["Universiteit" "Hogeschool" "Academie"])
+                            (fn [{{city :institution/address-city} :entity}] city))
+     :deps      [:institution/address-city]}
+    {:name      :institution/address
+     :generator address-generator
+     :deps      [:institution/address-city]}
+    {:name      :institution/address-city
+     :generator (-> "nl/city-names.txt" gen/split-resource-lines gen/one-of)}
+
+    {:name        :course/courseId
+     :generator   (gen/int)
      :constraints [constraints/unique]}
     {:name      :course/name ;; TODO from list of names, depends on educational programme
      :generator (gen/string)}
@@ -47,4 +67,4 @@
 
 
 
-;;(world/gen attributes {:course 3 :lecturer 2 :course-offering 3 :person 10})
+;;(world/gen attributes {:institution 1, :course 3, :lecturer 2, :course-offering, 3 :person 10})

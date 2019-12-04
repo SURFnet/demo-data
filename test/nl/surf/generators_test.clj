@@ -1,10 +1,16 @@
 (ns nl.surf.generators-test
-  (:require [nl.surf.generators :as generators]
-            [clojure.test :refer [deftest testing is]]))
+  (:require [clojure.test :refer [deftest is testing]]
+            [nl.surf.generators :as sut]))
 
-(deftest test-generators
-  (testing "int-generator"
-    (is (every? int? (repeatedly 10 #((generators/int) {})))))
-  (testing "one-of-generator"
+(deftest generators
+  (testing "int"
+    (is (every? int? (repeatedly 10 #((sut/int) {})))))
+  (testing "one-of"
     (let [values #{1 2 3}]
-      (is (every? values (repeatedly 10 #((generators/one-of values) {})))))))
+      (is (every? values (repeatedly 10 #((sut/one-of values) {}))))))
+  (testing "format"
+    (is (= "Fred and Wilma Flintstone"
+           ((sut/format "%s and %s %s"
+                        (sut/one-of ["Fred"])
+                        (sut/one-of ["Wilma"])
+                        (sut/one-of ["Flintstone"])) {})))))
