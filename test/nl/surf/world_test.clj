@@ -1,5 +1,6 @@
 (ns nl.surf.world-test
   (:require [clojure.test :refer [are deftest is]]
+            [clojure.string :as string]
             [nl.surf.generators :as gen]
             [nl.surf.world :as sut]))
 
@@ -61,3 +62,14 @@
       true  34
       false 0
       false -2)))
+
+(deftest own-properties
+  (let [attrs #{{:name :cat/name
+                 :generator gen/string}
+                {:name :cat/loud-name
+                 :generator (fn [{{n :cat/name} :entity}]
+                              (string/upper-case n))
+                 :deps [:cat/name]}}]
+    (doseq [cat (:cats (sut/gen attrs {:cat 5}))]
+      (is (= (:cat/loud-name cat) (string/upper-case (:cat/name cat)))))))
+
