@@ -2,7 +2,8 @@
   (:require [clojure.test :refer [are deftest is]]
             [clojure.string :as string]
             [nl.surf.generators :as gen]
-            [nl.surf.world :as sut]))
+            [nl.surf.world :as sut]
+            [nl.surf.constraints :as constraints]))
 
 (deftest sort-attrs
   (are [res attrs] (= res (sut/sort-attrs attrs))
@@ -47,7 +48,7 @@
                   :generator (gen/uuid)}
                  {:name      :cat/owner
                   :deps      [[:person/id]]
-                  :generator (sut/pick-ref :person/id)}
+                  :generator (sut/pick-ref)}
                  {:name      :cat/name
                   :generator (fn [{[owner-name] :dep-vals}]
                                (str owner-name "'s cat"))
@@ -90,8 +91,8 @@
       (is (= (:cat/loud-name cat) (string/upper-case (:cat/name cat)))))))
 
 (deftest lookup-path
-  (let [barry {:cat/id   4
-               :cat/name "Barry"
+  (let [barry {:cat/id     4
+               :cat/name   "Barry"
                :cat/friend [:cat/id 5]}
         bobby {:cat/id   5
                :cat/name "Bobby"}
@@ -99,7 +100,7 @@
     (is (= "Bobby" (sut/lookup-path {:world world :entity barry}
                                     [:cat/friend :cat/name])))))
 
-(deftest path-properties
+(deftest test-refs
   (let [attrs #{{:name      :cat/name
                  :generator (fn [{[owner-name] :dep-vals}]
                               (str owner-name "'s cat"))
@@ -107,7 +108,7 @@
                 {:name      :cat/id
                  :generator (gen/uuid)}
                 {:name      :cat/owner
-                 :generator (sut/pick-ref :person/id)
+                 :generator (sut/pick-ref)
                  :deps      [[:person/id]]}
                 {:name      :person/id
                  :generator (gen/uuid)}
@@ -116,3 +117,21 @@
         world (sut/gen attrs {:cat 1 :person 1})]
     (is (= "Fred" (get-in world [:person 0 :person/name])))
     (is (= "Fred's cat" (get-in world [:cat 0 :cat/name])))))
+
+(deftest test-unique-refs
+  (let [attrs #{{:name      :cat/name
+                 :generator (fn [{[owner-name] :dep-vals}]
+                              (str owner-name "'s cat"))
+                 :deps      [[:cat/owner :person/name]]}
+                {:name      :cat/id
+                 :generator (gen/uuid)}
+                {:name      :cat/owner
+                 :generator (sut/pick-unique-ref)
+                 :deps      [[:person/id]]}
+                {:name      :person/id
+                 :generator (gen/uuid)}
+                {:name        :person/name
+                 :generator   (gen/one-of ["Fred" "Barney"])
+                 :constraints [constraints/unique]}}
+        world (sut/gen attrs {:cat 2 :person 2})]
+    (is (= #{"Fred's cat" "Barney's cat"} (set (map :cat/name (:cat world)))))))

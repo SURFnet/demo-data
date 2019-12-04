@@ -1,5 +1,6 @@
 (ns nl.surf.world
-  (:require [clojure.data.generators :as data.generators]))
+  (:require [clojure.data.generators :as data.generators]
+            [clojure.set :as set]))
 
 (let [flatten-deps (fn [attr] (assoc attr :flat-deps (set (apply concat (:deps attr)))))
       independent? (fn [attr] (-> attr :flat-deps empty?))
@@ -34,13 +35,36 @@
   "All values in world for attribute `attr-name`"
   [world attr-name]
   (let [entity-type (-> attr-name namespace keyword)]
-    (map attr-name (entity-type world))))
+    (keep attr-name (entity-type world))))
 
 (defn pick-ref
-  "Select a random reference to an attribute-value pair in world"
-  [attr-name]
-  (fn [{:keys [world]}]
-    [attr-name (apply data.generators/one-of (values world attr-name))]))
+  "Select a random reference to an attribute (from deps) in world"
+  []
+  (fn [{:keys [world] {:keys [name deps]} :attr}]
+    (when-not (and (= 1 (count deps) (count (first deps))))
+      (throw (ex-info (str "Need exactly one direct dependency to create reference for " name)
+                      {:deps deps
+                       :name name})))
+    (let [[[ref-type]] deps]
+      [ref-type (apply data.generators/one-of (values world ref-type))])))
+
+(defn pick-unique-ref
+  "Select a random attribute-value tuple (from deps) that hasn't been
+  used for the current attribute."
+  []
+  (fn [{:keys [world] {:keys [name deps]} :attr}]
+    (when-not (and (= 1 (count deps) (count (first deps))))
+      (throw (ex-info (str "Need exactly one direct dependency to create reference for " name)
+                      {:deps deps
+                       :name name})))
+    (let [[[ref-type]] deps
+          taken        (set (map second (values world name)))
+          free         (remove taken (values world ref-type))]
+      (when (empty? free)
+        (throw (ex-info (str "No unique refs to " ref-type " available for " name)
+                        {:name     name
+                         :ref-type ref-type})))
+      [ref-type (apply data.generators/one-of free)])))
 
 (defn get-entity
   "Get entity with the given attribute - value pair"
@@ -52,7 +76,7 @@
   "Recursively lookup a value from path starting from an entity."
   [{:keys [entity world]} path]
   (loop [entity entity
-         path path]
+         path   path]
     (let [prop  (first path)
           value (get entity prop)]
       (if-let [path (next path)]

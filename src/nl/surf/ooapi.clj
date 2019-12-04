@@ -59,16 +59,16 @@
      :generator (gen/uuid)}
     {:name      :course-offering/course
      :deps      [[:course/courseId]]
-     :generator (world/pick-ref :course/courseId)}
+     :generator (world/pick-ref)}
     {:name      :course-offering/maxNumberStudents
      :generator (fn [_]
                   (+ 5 (data.generators/geometric (/ 1.0 20))))}
     {:name :lecturer/person
      :deps [[:person/personId]]
-     :generator (world/pick-ref :person/personId)}
+     :generator (world/pick-ref)}
     {:name :lecturer/courseOffering
      :deps [[:course-offering/courseOfferingId]]
-     :generator (world/pick-ref :course-offering/courseOfferingId)}
+     :generator (world/pick-ref)}
     {:name      :person/personId
      :generator (gen/uuid)}
     {:name      :person/name
