@@ -3,7 +3,8 @@
   (:require [clojure.core :as core]
             [clojure.data.generators :as gen]
             [clojure.java.io :as io]
-            [clojure.string :as s]))
+            [clojure.string :as s]
+            [yaml.core :as yaml]))
 
 (defn uuid
   "Build a generator to pick UUIDs."
@@ -58,3 +59,8 @@
   "Returns a collection by reading named resource `n` and spliting lines."
   [n]
   (-> n io/resource slurp s/split-lines))
+
+(defn yaml-resource
+  "Returns YAML data from resource `n`."
+  [n]
+  (-> n io/resource slurp (yaml/parse-string :keywords false)))

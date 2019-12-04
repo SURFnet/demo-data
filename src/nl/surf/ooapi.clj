@@ -1,9 +1,11 @@
 (ns nl.surf.ooapi
-  (:require [nl.surf.generators :as gen]
-            [nl.surf.world :as world]
+  (:require [clojure.data.generators :as data.generators]
+            [clojure.string :as string]
             [nl.surf.constraints :as constraints]
-            [clojure.data.generators :as data.generators]
-            [clojure.string :as string]))
+            [nl.surf.generators :as gen]))
+
+(def programme-names-by-field-of-study (-> "nl/programme-names.yml" gen/yaml-resource))
+(def fields-of-study (keys programme-names-by-field-of-study))
 
 (defn abbreviate
   [name]
@@ -34,6 +36,13 @@
     {:name      :institution/address-city
      :generator (-> "nl/city-names.txt" gen/split-resource-lines gen/one-of)}
 
+    {:name :educational-programme/name
+     :deps [:educational-programme/field-of-study]
+     :generator (fn [{{field :educational-programme/field-of-study} :entity :as world}]
+                  ((gen/one-of (programme-names-by-field-of-study field)) world))}
+    {:name :educational-programme/field-of-study
+     :generator (gen/one-of field-of-study)}
+
     {:name        :course/courseId
      :generator   (gen/int)
      :constraints [constraints/unique]}
@@ -46,6 +55,7 @@
     {:name      :course/ects
      :generator (fn [_]
                   (* 2.5 (data.generators/geometric (/ 1.0 2.5))))}
+
     {:name      :course-offering/courseOfferingId
      :generator (gen/uuid)}
     {:name :course-offering/courseId
@@ -53,6 +63,7 @@
     {:name      :course-offering/maxNumberStudents
      :generator (fn [_]
                   (+ 5 (data.generators/geometric (/ 1.0 20))))}
+
     {:name :lecturer/personId
      :deps [:person/personId]}
     {:name :lecturer/courseOfferingId
@@ -60,11 +71,12 @@
     {:name      :person/personId
      :generator (gen/uuid)}
     {:name      :person/name
-     :generator (fn [_]
-                  (data.generators/one-of "Bubbles" "Percy" "Mary" "Fred" "Wilma"))}})
+     :generator (gen/format "%s %s"
+                            (-> "nl/first-names.txt" gen/split-resource-lines gen/one-of)
+                            (-> "nl/last-names.txt" gen/split-resource-lines gen/one-of))}})
 
 
 
 
 
-;;(world/gen attributes {:institution 1, :course 3, :lecturer 2, :course-offering, 3 :person 10})
+;;(world/gen attributes {:institution 1, :educational-programme 3, :course 15, :lecturer 30, :course-offering 30 :person 30})
