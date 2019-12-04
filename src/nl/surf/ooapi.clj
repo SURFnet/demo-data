@@ -15,10 +15,10 @@
 
 (def attributes
   #{{:name      :course/courseId
-     :generator gen/int
+     :generator (gen/int)
      :constraints [constraints/unique]}
     {:name      :course/name ;; TODO from list of names, depends on educational programme
-     :generator gen/string}
+     :generator (gen/string)}
     {:name      :course/abbreviation
      :deps      [:course/name]
      :generator (fn [{{name :course/name} :entity}]
@@ -27,7 +27,7 @@
      :generator (fn [_]
                   (* 2.5 (data.generators/geometric (/ 1.0 2.5))))}
     {:name      :course-offering/courseOfferingId
-     :generator gen/uuid}
+     :generator (gen/uuid)}
     {:name :course-offering/courseId
      :deps [:course/courseId]}
     {:name      :course-offering/maxNumberStudents
@@ -38,7 +38,7 @@
     {:name :lecturer/courseOfferingId
      :deps [:course-offering/courseOfferingId]}
     {:name      :person/personId
-     :generator gen/uuid}
+     :generator (gen/uuid)}
     {:name      :person/name
      :generator (fn [_]
                   (data.generators/one-of "Bubbles" "Percy" "Mary" "Fred" "Wilma"))}})

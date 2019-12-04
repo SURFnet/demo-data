@@ -34,7 +34,7 @@
 
 (deftest gen
   (let [attrs  #{{:name      :cat/id
-                  :generator gen/uuid}
+                  :generator (gen/uuid)}
                  {:name      :cat/name
                   :generator (fn [state]
                                (str (-> (sut/get-relation state :person)
@@ -43,9 +43,9 @@
                  {:name :cat/owner-id
                   :deps [:person/id]}
                  {:name      :person/id
-                  :generator gen/uuid}
+                  :generator (gen/uuid)}
                  {:name      :person/name
-                  :generator gen/uuid}}
+                  :generator (gen/uuid)}}
         dist   {:cat    4
                 :person 3}
         result (sut/gen attrs dist)]
@@ -65,7 +65,7 @@
 
 (deftest own-properties
   (let [attrs #{{:name :cat/name
-                 :generator gen/string}
+                 :generator (gen/string)}
                 {:name :cat/loud-name
                  :generator (fn [{{n :cat/name} :entity}]
                               (string/upper-case n))

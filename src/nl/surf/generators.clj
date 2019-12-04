@@ -19,19 +19,20 @@
 (s/def ::_id uuid?)
 (s/def ::entity (s/keys :opt-un [::_id]))
 
-;; TODO: make all generator functions the same signature
-
 (defn uuid
-  [_]
-  (gen/uuid))
+  []
+  (fn [_]
+    (gen/uuid)))
 
 (defn string
-  [_]
-  (gen/string))
+  []
+  (fn [_]
+    (gen/string)))
 
 (defn int
-  [_]
-  (gen/int))
+  []
+  (fn [_]
+    (gen/int)))
 
 (defn one-of
   [coll]

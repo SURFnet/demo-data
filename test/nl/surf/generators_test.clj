@@ -4,7 +4,7 @@
 
 (deftest test-generators
   (testing "int-generator"
-    (is (every? int? (repeatedly 10 #(generators/int {})))))
+    (is (every? int? (repeatedly 10 #((generators/int) {})))))
   (testing "one-of-generator"
     (let [values #{1 2 3}]
       (is (every? values (repeatedly 10 #((generators/one-of values) {})))))))
