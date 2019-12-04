@@ -1,6 +1,7 @@
 (ns nl.surf.world
   (:require [clojure.data.generators :as data.generators]
-            [clojure.set :as set]))
+            [clojure.math.combinatorics :as combo]
+            [clojure.string :as string]))
 
 (let [flatten-deps (fn [attr] (assoc attr :flat-deps (set (apply concat (:deps attr)))))
       independent? (fn [attr] (-> attr :flat-deps empty?))
@@ -29,7 +30,6 @@
           (if (empty? dependent)
             (map (partial pick-attr attrs) ordered)
             (throw (ex-info "circular dependency detected" {:attributes dependent}))))))))
-
 
 (defn- values
   "All values in world for attribute `attr-name`"
@@ -65,6 +65,30 @@
                         {:name     name
                          :ref-type ref-type})))
       [ref-type (apply data.generators/one-of free)])))
+
+(let [combinations (fn [world names]
+                     (apply combo/cartesian-product (map (fn [name]
+                                                           (mapv (fn [val]
+                                                                   [name val])
+                                                                 (values world name)))
+                                                         names)))]
+
+  (defn pick-unique-refs
+    "Select a combination of refs (from deps) that's unique for this attribute"
+    []
+    (fn [{:keys [world] {:keys [name deps]} :attr}]
+      (when-not (every? #(= 1 (count %)) deps)
+        (throw (ex-info (str "Need only direct dependencies to create references for " name)
+                        {:deps deps
+                         :name name})))
+      (let [ref-types (map first deps)
+            taken     (set (values world name))
+            free      (remove taken (combinations world ref-types))]
+        (when (empty? free)
+          (throw (ex-info (str "No unique refs to " (string/join ", " ref-types) " available for " name)
+                          {:name     name
+                           :ref-types ref-types})))
+        (apply data.generators/one-of free)))))
 
 (defn get-entity
   "Get entity with the given attribute - value pair"
