@@ -28,12 +28,16 @@
           (throw (ex-info "circular dependency detected" {:attributes dependent})))))))
 
 (defn get-relation
-  "Get relation for `entity` from `world` of `type`."
+  "Get relation for `entity` from `world` of `type`.
+
+  If relation is of the same type, return `entity`"
   [{:keys [world entity]} type]
-  (let [id (get entity (keyword (name type) "_id"))]
-    (->> (get world type)
-         (filter #(= id (:_id %)))
-         first)))
+  (if (= (:_type entity) type)
+    entity
+    (let [id (get entity (keyword (name type) "_id"))]
+      (->> (get world type)
+           (filter #(= id (:_id %)))
+           first))))
 
 (defn- pick-relation
   "Pick a random relation from `world` of `type`.
@@ -48,18 +52,18 @@
 
 (defn- relate-deps
   "Ensure `entity` has allow related `deps`.  `deps` are namespaced attribute
-  names where the namespace determines the type.
-
-  TODO: does not handle deps to self (will try to relate to a peer)"
+  names where the namespace determines the type."
   [world entity deps]
   (->> deps
        (map #(-> % namespace keyword))
        set
        (reduce (fn [entity dep-type]
-                 (let [id-key (keyword (name dep-type) "_id")]
-                   (if (contains? entity id-key)
-                     entity
-                     (assoc entity id-key (pick-relation world dep-type)))))
+                 (if (= dep-type (:_type entity)) ; deps to own type refer to entity
+                   entity
+                   (let [id-key (keyword (name dep-type) "_id")]
+                    (if (contains? entity id-key)
+                      entity
+                      (assoc entity id-key (pick-relation world dep-type))))))
                entity)))
 
 (defn- direct-dep
@@ -149,7 +153,8 @@
                         ;; entities needs to be a vector so we can
                         ;; update-in specific entities
                         (assoc m type (vec (repeatedly amount
-                                                       (fn [] {:_id (uuid)})))))
+                                                       (fn [] {:_id (uuid)
+                                                               :_type type})))))
                       {}
                       dist)]
     (->> attrs
