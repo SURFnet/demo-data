@@ -1,80 +1,63 @@
-(ns nl.surf.world)
+(ns nl.surf.world
+  (:require [clojure.data.generators :as data.generators]))
 
-(defn uuid []
-  (java.util.UUID/randomUUID))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(let [independent? (fn [attr] (-> attr :deps empty?))
+(let [flatten-deps (fn [attr] (assoc attr :flat-deps (set (apply concat (:deps attr)))))
+      independent? (fn [attr] (-> attr :flat-deps empty?))
       dependent?   (complement independent?)
-      remove-dep   (fn [name attr] (update attr :deps #(disj (set %1) %2) name))
+      remove-dep   (fn [name attr] (update attr :flat-deps #(disj (set %1) %2) name))
       pick-attr    (fn [attrs name] (->> attrs (filter #(= name (:name %))) first))]
 
   (defn sort-attrs
     "Sort `attrs` to ensure dependencies are met.  Uses Kahn's algorithm, see
   also: https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm"
     [attrs]
-    (loop [dependent   (filter dependent? attrs)
-           independent (filter independent? attrs)
-           ordered     []]
-      (if-let [attr (first independent)]
-        (let [attrs (map (partial remove-dep (:name attr)) dependent)]
-          (recur (filter dependent? attrs)
-                 (into (vec (rest independent)) (filter independent? attrs))
-                 (conj ordered (:name attr))))
+    (let [attrs* (map flatten-deps attrs)]
+      (doseq [dep (mapcat :flat-deps attrs*)]
+        (when-not (some #(= (:name %) dep) attrs*)
+          (throw (ex-info (str "dependency on undefined attribute " dep) {:dep dep}))))
 
-        (if (empty? dependent)
-          (map (partial pick-attr attrs) ordered)
-          (throw (ex-info "circular dependency detected" {:attributes dependent})))))))
+      (loop [dependent   (filter dependent? attrs*)
+             independent (filter independent? attrs*)
+             ordered     []]
+        (if-let [attr (first independent)]
+          (let [attrs* (map (partial remove-dep (:name attr)) dependent)]
+            (recur (filter dependent? attrs*)
+                   (into (vec (rest independent)) (filter independent? attrs*))
+                   (conj ordered (:name attr))))
 
-(defn get-relation
-  "Get relation for `entity` from `world` of `type`.
+          (if (empty? dependent)
+            (map (partial pick-attr attrs) ordered)
+            (throw (ex-info "circular dependency detected" {:attributes dependent}))))))))
 
-  If relation is of the same type, return `entity`"
-  [{:keys [world entity]} type]
-  (if (= (:_type entity) type)
-    entity
-    (let [id (get entity (keyword (name type) "_id"))]
-      (->> (get world type)
-           (filter #(= id (:_id %)))
-           first))))
 
-(defn- pick-relation
-  "Pick a random relation from `world` of `type`.
+(defn- values
+  "All values in world for attribute `attr-name`"
+  [world attr-name]
+  (let [entity-type (-> attr-name namespace keyword)]
+    (map attr-name (entity-type world))))
 
-  TODO: some way to direct picking a relation"
-  [world type]
-  (-> world
-      (get type)
-      shuffle
-      first
-      (get :_id)))
+(defn pick-ref
+  "Select a random reference to an attribute-value pair in world"
+  [attr-name]
+  (fn [{:keys [world]}]
+    [attr-name (apply data.generators/one-of (values world attr-name))]))
 
-(defn- relate-deps
-  "Ensure `entity` has allow related `deps`.  `deps` are namespaced attribute
-  names where the namespace determines the type."
-  [world entity deps]
-  (->> deps
-       (map #(-> % namespace keyword))
-       set
-       (reduce (fn [entity dep-type]
-                 (if (= dep-type (:_type entity)) ; deps to own type refer to entity
-                   entity
-                   (let [id-key (keyword (name dep-type) "_id")]
-                    (if (contains? entity id-key)
-                      entity
-                      (assoc entity id-key (pick-relation world dep-type))))))
-               entity)))
+(defn get-entity
+  "Get entity with the given attribute - value pair"
+  [world [attr-name value]]
+  (let [entity-type (-> attr-name namespace keyword)]
+    (first (filter #(= value (attr-name %)) (entity-type world)))))
 
-(defn- direct-dep
-  "Basic case where attribute depends directly on value of dependency; no
-  generator needed."
-  [{{:keys [deps]} :attr :as state}]
-  (let [[k] deps]
-    (-> state
-        (get-relation (keyword (namespace k)))
-        (get k))))
-
+(defn lookup-path
+  "Recursively lookup a value from path starting from an entity."
+  [{:keys [entity world]} path]
+  (loop [entity entity
+         path path]
+    (let [prop  (first path)
+          value (get entity prop)]
+      (if-let [path (next path)]
+        (recur (get-entity world value) path)
+        value))))
 
 (def ^:dynamic *retries* 1000)
 
@@ -108,21 +91,26 @@
             (throw (ex-info "Unable to satisfy constraints" {:entity (:entity state)
                                                              :attr   (:attr state)}))))))))
 
+(defn copying-generator
+  [deps]
+  (assert (= 1 (count deps)) "Need exactly one dependency to create copying generator")
+  (fn [{:keys [dep-vals]}]
+    (first dep-vals)))
+
 (defn- gen-attr
   "Generate a attribute for `entity`."
-  [world entity {:keys [deps generator constraints] :as attr}]
-  (let [entity    (if deps
-                    (relate-deps world entity deps)
-                    entity)
-        generator (or generator direct-dep)
+  [world entity {:keys [deps generator constraints name] :as attr}]
+  (let [generator (or generator (copying-generator deps))
         generator (if (seq constraints)
                     (constrain generator constraints)
                     generator)]
     (assoc entity
            (:name attr)
-           (generator {:entity entity
-                       :attr   attr
-                       :world  world}))))
+           (generator {:entity   entity
+                       :attr     attr
+                       :world    world
+                       :dep-vals (map (partial lookup-path {:entity entity :world world})
+                                      deps)}))))
 
 (defn- gen-attrs
   "Generate all properties for `attr`"
@@ -152,9 +140,7 @@
   (let [world (reduce (fn [m [type amount]]
                         ;; entities needs to be a vector so we can
                         ;; update-in specific entities
-                        (assoc m type (vec (repeatedly amount
-                                                       (fn [] {:_id (uuid)
-                                                               :_type type})))))
+                        (assoc m type (vec (repeat amount {}))))
                       {}
                       dist)]
     (->> attrs

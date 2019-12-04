@@ -9,39 +9,51 @@
     [] []
 
     [{:name :a}
-     {:name :b :deps [:a]}
-     {:name :c :deps [:b]}
-     {:name :d :deps [:c]}]
-    [{:name :c :deps [:b]}
-     {:name :b :deps [:a]}
+     {:name :b :deps [[:a]]}
+     {:name :c :deps [[:b]]}
+     {:name :d :deps [[:c]]}]
+    [{:name :c :deps [[:b]]}
+     {:name :b :deps [[:a]]}
      {:name :a}
-     {:name :d :deps [:c]}]
+     {:name :d :deps [[:c]]}]
 
     [{:name :a}
      {:name :b}
-     {:name :d :deps [:a]}
-     {:name :c :deps [:a :b]}
-     {:name :e :deps [:b]}]
-    [{:name :c :deps [:a :b]}
+     {:name :d :deps [[:a]]}
+     {:name :c :deps [[:a] [:b]]}
+     {:name :e :deps [[:b]]}]
+    [{:name :c :deps [[:a] [:b]]}
      {:name :a}
-     {:name :d :deps [:a]}
-     {:name :e :deps [:b]}
+     {:name :d :deps [[:a]]}
+     {:name :e :deps [[:b]]}
      {:name :b}])
 
   (is (thrown-with-msg? clojure.lang.ExceptionInfo #"circular dependency detected"
-                        (sut/sort-attrs #{{:name :a :deps [:b]}
-                                          {:name :b :deps [:a]}}))))
+                        (sut/sort-attrs #{{:name :a :deps [[:b]]}
+                                          {:name :b :deps [[:a]]}}))
+      "detect circular dependencies")
+
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo #".*dependency on undefined attribute.*"
+                        (sut/sort-attrs #{{:name :a :deps [[:b]]}}))
+      "detect dependencies on non-existing attributes"))
+
+(deftest test-get-entity
+  (is (= {:foo/id 2 :foo/name "Fred"}
+         (sut/get-entity {:foo [{:foo/id 1} {:foo/id 2 :foo/name "Fred"}]}
+                         [:foo/id 2]))))
 
 (deftest gen
   (let [attrs  #{{:name      :cat/id
                   :generator (gen/uuid)}
+                 {:name      :cat/owner
+                  :deps      [[:person/id]]
+                  :generator (sut/pick-ref :person/id)}
                  {:name      :cat/name
-                  :generator (fn [state]
-                               (str (-> (sut/get-relation state :person)
-                                        :person/name) "'s cat"))
-                  :deps      [:person/name]}
+                  :generator (fn [{[owner-name] :dep-vals}]
+                               (str owner-name "'s cat"))
+                  :deps      [[:cat/owner :person/name]]}
                  {:name :cat/owner-id
-                  :deps [:person/id]}
+                  :deps [[:person/id]]}
                  {:name      :person/id
                   :generator (gen/uuid)}
                  {:name      :person/name
@@ -64,12 +76,43 @@
       false -2)))
 
 (deftest own-properties
-  (let [attrs #{{:name :cat/name
-                 :generator (gen/string)}
-                {:name :cat/loud-name
-                 :generator (fn [{{n :cat/name} :entity}]
-                              (string/upper-case n))
-                 :deps [:cat/name]}}]
-    (doseq [cat (:cats (sut/gen attrs {:cat 5}))]
+  (let [num-cats 5
+        attrs    #{{:name      :cat/name
+                    :generator (gen/string)}
+                   {:name      :cat/loud-name
+                    :generator (fn [{[name] :dep-vals}]
+                                 (string/upper-case name))
+                    :deps      [[:cat/name]]}}
+        world    (sut/gen attrs {:cat num-cats})
+        cats     (:cat world)]
+    (is (= num-cats (count cats)))
+    (doseq [cat cats]
       (is (= (:cat/loud-name cat) (string/upper-case (:cat/name cat)))))))
 
+(deftest lookup-path
+  (let [barry {:cat/id   4
+               :cat/name "Barry"
+               :cat/friend [:cat/id 5]}
+        bobby {:cat/id   5
+               :cat/name "Bobby"}
+        world {:cat [barry bobby]}]
+    (is (= "Bobby" (sut/lookup-path {:world world :entity barry}
+                                    [:cat/friend :cat/name])))))
+
+(deftest path-properties
+  (let [attrs #{{:name      :cat/name
+                 :generator (fn [{[owner-name] :dep-vals}]
+                              (str owner-name "'s cat"))
+                 :deps      [[:cat/owner :person/name]]}
+                {:name      :cat/id
+                 :generator (gen/uuid)}
+                {:name      :cat/owner
+                 :generator (sut/pick-ref :person/id)
+                 :deps      [[:person/id]]}
+                {:name      :person/id
+                 :generator (gen/uuid)}
+                {:name      :person/name
+                 :generator (gen/one-of ["Fred"])}}
+        world (sut/gen attrs {:cat 1 :person 1})]
+    (is (= "Fred" (get-in world [:person 0 :person/name])))
+    (is (= "Fred's cat" (get-in world [:cat 0 :cat/name])))))
