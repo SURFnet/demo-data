@@ -55,7 +55,7 @@
 
 ;;;; Helpers
 
-(defn split-resource-lines
+(defn lines-resource
   "Returns a collection by reading named resource `n` and spliting lines."
   [n]
   (-> n io/resource slurp s/split-lines))

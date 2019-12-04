@@ -17,7 +17,7 @@
 
 (def address-generator
   (gen/format "%s %d\n%d %c%c  %s"
-              (-> "nl/street-names.txt" gen/split-resource-lines gen/one-of)
+              (-> "nl/street-names.txt" gen/lines-resource gen/one-of)
               (gen/int 1 200)
               (gen/int 1011 9999)
               (gen/char \A \Z)
@@ -34,7 +34,7 @@
      :generator address-generator
      :deps      [:institution/address-city]}
     {:name      :institution/address-city
-     :generator (-> "nl/city-names.txt" gen/split-resource-lines gen/one-of)}
+     :generator (-> "nl/city-names.txt" gen/lines-resource gen/one-of)}
 
     {:name :educational-programme/name
      :deps [:educational-programme/field-of-study]
@@ -72,8 +72,8 @@
      :generator (gen/uuid)}
     {:name      :person/name
      :generator (gen/format "%s %s"
-                            (-> "nl/first-names.txt" gen/split-resource-lines gen/one-of)
-                            (-> "nl/last-names.txt" gen/split-resource-lines gen/one-of))}})
+                            (-> "nl/first-names.txt" gen/lines-resource gen/one-of)
+                            (-> "nl/last-names.txt" gen/lines-resource gen/one-of))}})
 
 
 
