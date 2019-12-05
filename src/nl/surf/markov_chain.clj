@@ -38,13 +38,22 @@
             (into r [::et-cetera])
             r))))))
 
-(defn- split-lines [text]
-  (map s/trim (re-seq #".*?[.?!]\s" (s/replace text #"\s+" " "))))
+(defn split-sentences
+  "Split `text` into sentences."
+  [text]
+  (map s/trim (re-seq #".*?[.?!](?:\s|$)" (s/replace text #"\s+" " "))))
 
-(defn- split-words [line]
-  (-> line (s/split #"\s+")))
+(defn split-words
+  "Split `sentence` into words."
+  [sentence]
+  (s/split sentence #"\s+"))
 
 (defn build-text-state-space
   "Build a state space using `text` as a corpus of lines and words."
   [text & {:keys [lookback] :or {lookback 2}}]
-  (build-state-space (->> text split-lines (map split-words)) :lookback lookback))
+  (build-state-space (->> text split-sentences (map split-words)) :lookback lookback))
+
+(defn generate-text
+  "Generate a new sentence from are `state-space`."
+  [state-space]
+  (->> state-space generate (s/join " ")))
