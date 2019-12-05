@@ -115,21 +115,24 @@
             (throw (ex-info "Unable to satisfy constraints" {:entity (:entity state)
                                                              :attr   (:attr state)}))))))))
 
-(defn copying-generator
-  [deps]
-  (assert (= 1 (count deps)) "Need exactly one dependency to create copying generator")
+(defn- copying-generator
+  [{:keys [deps name]}]
+  (when-not (= 1 (count deps))
+    (throw (ex-info (str "Need exactly one dependency to create copying generator for " name)
+                    {:name name
+                     :deps deps})))
   (fn [{:keys [dep-vals]}]
     (first dep-vals)))
 
 (defn- gen-attr
   "Generate a attribute for `entity`."
   [world entity {:keys [deps generator constraints name] :as attr}]
-  (let [generator (or generator (copying-generator deps))
+  (let [generator (or generator (copying-generator attr))
         generator (if (seq constraints)
                     (constrain generator constraints)
                     generator)]
     (assoc entity
-           (:name attr)
+           name
            (generator {:entity   entity
                        :attr     attr
                        :world    world
