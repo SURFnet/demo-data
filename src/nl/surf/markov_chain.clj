@@ -29,7 +29,7 @@
   (let [max-length (or max-length (:max-length state-space))]
     (loop [r [], n 0]
       (let [c (->> r reverse (take lookback) reverse)
-            w (-> space (get c) gen/shuffle first)]
+            w (apply gen/one-of (get space c))]
         (if (< n max-length)
           (if w
             (recur (conj r w) (inc n))
