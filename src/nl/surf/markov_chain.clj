@@ -24,7 +24,7 @@
    :max-length (or max-length (apply max (map count corpus)))})
 
 (defn generate
-  "Generate new chains from given in `state-space`."
+  "Generate new chains from given `state-space`."
   [{:keys [space lookback max-length] :as state-space}]
   (let [max-length (or max-length (:max-length state-space))]
     (loop [r [], n 0]
