@@ -100,7 +100,7 @@
     (is (= "Bobby" (sut/lookup-path {:world world :entity barry}
                                     [:cat/friend :cat/name])))))
 
-(deftest test-refs
+(deftest test-ref
   (let [attrs #{{:name      :cat/name
                  :generator (fn [{[owner-name] :dep-vals}]
                               (str owner-name "'s cat"))
@@ -118,7 +118,7 @@
     (is (= "Fred" (get-in world [:person 0 :person/name])))
     (is (= "Fred's cat" (get-in world [:cat 0 :cat/name])))))
 
-(deftest test-unique-refs
+(deftest test-unique-ref
   (let [attrs #{{:name      :cat/name
                  :generator (fn [{[owner-name] :dep-vals}]
                               (str owner-name "'s cat"))
@@ -135,3 +135,39 @@
                  :constraints [constraints/unique]}}
         world (sut/gen attrs {:cat 2 :person 2})]
     (is (= #{"Fred's cat" "Barney's cat"} (set (map :cat/name (:cat world)))))))
+
+(deftest test-unique-refs
+  (let [attrs #{{:name        :cat/name
+                 :generator   (gen/one-of ["Cleo" "Tiger"])
+                 :constraints [constraints/unique]}
+                {:name      :cat/id
+                 :generator (gen/uuid)}
+                {:name      :owner/refs
+                 :generator (sut/pick-unique-refs)
+                 :deps      [[:cat/id] [:person/id]]}
+                ;; this is ugly but it works
+                {:name      :owner/cat
+                 :deps      [[:owner/refs]]
+                 :generator (fn [{[[cat-ref]] :dep-vals}] ; pick cat-ref out of vector
+                              cat-ref)}
+                {:name      :owner/person
+                 :deps      [[:owner/refs]]
+                 :generator (fn [{[[_ person-ref]] :dep-vals}] ; pick person-ref out of vector
+                              person-ref)}
+                {:name      :owner/description
+                 :generator (fn [{[person-name cat-name] :dep-vals}]
+                              (str "Cat " cat-name " is owned by " person-name))
+                 :deps      [[:owner/person :person/name] [:owner/cat :cat/name]]}
+                {:name      :person/id
+                 :generator (gen/uuid)}
+                {:name        :person/name
+                 :generator   (gen/one-of ["Fred" "Barney"])
+                 :constraints [constraints/unique]}}
+        world (sut/gen attrs {:cat 2 :person 2 :owner 4})]
+    (is (= #{"Cat Cleo is owned by Barney"
+             "Cat Cleo is owned by Fred"
+             "Cat Tiger is owned by Barney"
+             "Cat Tiger is owned by Fred"}
+           (set (map :owner/description (:owner world)))))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No unique refs to.*"
+                          (sut/gen attrs {:cat 2 :person 2 :owner 5})))))
