@@ -138,7 +138,7 @@
 
 (deftest test-unique-refs
   (let [attrs #{{:name        :cat/name
-                 :generator   (gen/one-of ["Kitty" "Catty"])
+                 :generator   (gen/one-of ["Cleo" "Tiger"])
                  :constraints [constraints/unique]}
                 {:name      :cat/id
                  :generator (gen/uuid)}
@@ -164,10 +164,10 @@
                  :generator   (gen/one-of ["Fred" "Barney"])
                  :constraints [constraints/unique]}}
         world (sut/gen attrs {:cat 2 :person 2 :owner 4})]
-    (is (= #{"Cat Kitty is owned by Barney"
-             "Cat Kitty is owned by Fred"
-             "Cat Catty is owned by Barney"
-             "Cat Catty is owned by Fred"}
+    (is (= #{"Cat Cleo is owned by Barney"
+             "Cat Cleo is owned by Fred"
+             "Cat Tiger is owned by Barney"
+             "Cat Tiger is owned by Fred"}
            (set (map :owner/description (:owner world)))))
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No unique refs to.*"
                           (sut/gen attrs {:cat 2 :person 2 :owner 5})))))
