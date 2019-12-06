@@ -3,7 +3,7 @@
   (:require [clojure.data.generators :as gen]
             [clojure.string :as s]))
 
-(defn- build-line-state-space [words lookback]
+(defn- analyse-line [words lookback]
   (reduce (fn [m i]
             (let [k (if (<= i lookback)
                       (->> words (take i))
@@ -12,19 +12,19 @@
           {}
           (range (+ (count words) lookback))))
 
-(defn build-state-space
-  "Bujld a state space using `corpus` a vector of chains.  Option `lookback`
-  determines the strength of the lookup key and defaults to 2."
+(defn analyse
+  "Analyse `corpus` and return a state space.  Option `lookback` determines the
+  strength of the lookup key and defaults to 2."
   [corpus & {:keys [lookback max-length] :or {lookback 2}}]
   {:space      (reduce (fn [m line]
-                         (merge-with into m (build-line-state-space line lookback)))
+                         (merge-with into m (analyse-line line lookback)))
                        {}
                        corpus)
    :lookback   lookback
    :max-length (or max-length (apply max (map count corpus)))})
 
 (defn generate
-  "Generate new chains using the probabilities described in `state-space`."
+  "Generate new chains from given in `state-space`."
   [{:keys [space lookback max-length] :as state-space}]
   (let [max-length (or max-length (:max-length state-space))]
     (loop [r [], n 0]
@@ -48,10 +48,10 @@
   [sentence]
   (s/split sentence #"\s+"))
 
-(defn build-text-state-space
-  "Build a state space using `text` as a corpus of lines and words."
-  [text & {:keys [lookback] :or {lookback 2}}]
-  (build-state-space (->> text split-sentences (map split-words)) :lookback lookback))
+(defn analyse-text
+  "Analyse `text` as a corpus of lines and words."
+  [text & opts]
+  (apply analyse (->> text split-sentences (map split-words)) opts))
 
 (defn generate-text
   "Generate a new sentence from are `state-space`."

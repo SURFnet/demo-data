@@ -7,7 +7,7 @@
 
 (deftest generate
   (let [gen (fn [text & opts]
-              (sut/generate (apply sut/build-state-space text opts)))]
+              (sut/generate (apply sut/analyse text opts)))]
     (testing "some examples"
       (is (every? #{[1 2 3]}
                   (repeatedly sample-size
@@ -32,7 +32,7 @@
 
 (deftest generate-text
   (let [gen (fn [text & opts]
-              (sut/generate-text (apply sut/build-text-state-space text opts)))]
+              (sut/generate-text (apply sut/analyse-text text opts)))]
     (testing "some examples"
       (is (every? #{"Fred kisses Wilma."}
                   (repeatedly sample-size
