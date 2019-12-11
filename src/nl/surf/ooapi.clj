@@ -4,7 +4,9 @@
             [nl.surf.constraints :as constraints]
             [nl.surf.generators :as gen]
             [nl.surf.date-util :as date-util]
+            [nl.surf.export :as export]
             [nl.surf.world :as world]))
+
 
 (def programme-names-by-field-of-study (-> "nl/programme-names.yml" gen/yaml-resource))
 (def fields-of-study (keys programme-names-by-field-of-study))
@@ -281,7 +283,56 @@
 
     }  )
 
+(defn lecturers-for-offering
+  [world course-offering-id]
+  (keep (fn [{[_ courseOfferingId] :lecturer/courseOffering
+              person               :lecturer/person}]
+          (when (= course-offering-id courseOfferingId)
+            (world/get-entity world person)))
+        (:lecturer world)))
 
+
+(def export-conf
+  {"/"                       {:type       :service
+                              :singleton? true
+                              :attributes {:service/institution {:hidden? true}}
+                              :pre        (fn [e _]
+                                            (assoc e :links [{:_self {:href "/"}}
+                                                             :endpoints [{:href "/institution"}
+                                                                         {:href "/educational-programmes"}
+                                                                         {:href "/course-offerings"}
+                                                                         {:href "/persons"}
+                                                                         {:href "/courses"}]]))}
+   "/institution"            {:type       :institution
+                              :singleton? true
+                              :attributes {:institution/address-city {:hidden? true}}
+                              :pre        (fn [e _]
+                                            (assoc e :links [{:_self {:href "/institution"}}
+                                                             {:educational-programmes {:href "/educational-programmes"}}]))}
+   "/educational-programmes" {:type :educational-programme
+                              :pre  (fn [{:educational-programme/keys [educationalProgrammeId] :as e} _]
+                                      (assoc e :links [{:_self {:href (str "/educational-programmes/" educationalProgrammeId)}}
+                                                       {:courses {:href (str "/courses?educationalProgramme=" educationalProgrammeId)}}]))}
+   "/course-offerings"       {:type       :course-offering
+                              :attributes {:course-offering/course {:follow-ref? true
+                                                                    :attributes  {:course/educationalProgramme {:hidden? true}}}}
+                              :pre        (fn [{:course-offering/keys [courseOfferingId] :as e} world]
+                                            (assoc e :links [{:_self     {:href (str "/course-offerings/" courseOfferingId)}
+                                                              :lecturers (mapv (fn [{:person/keys [displayName personId]}]
+                                                                                 {:href  (str "/persons/" personId)
+                                                                                  :title displayName})
+                                                                               (lecturers-for-offering world courseOfferingId))}]))}
+   "/persons"                {:type :person
+                              :pre  (fn [{:person/keys [personId] :as e} _]
+                                      (assoc e :links [{:_self {:href (str "/persons/" personId)}}
+                                        ; link to courses not
+                                        ; implemented because that
+                                        ; only supports students
+                                                       ]))}
+   "/courses"                {:type       :course
+                              :attributes {:course/educationalProgramme {:hidden? true}}}})
 
 
 ;;(world/gen attributes {:service 1 :institution 1, :educational-programme 3, :course 15, :lecturer 30, :course-offering 30 :person 30})
+
+;;(export/export (world/gen attributes {:service 1 :institution 1, :educational-programme 2, :course 5, :lecturer 20, :course-offering 10 :person 15}) export-conf)
