@@ -1,73 +1,155 @@
 (ns nl.surf.ooapi
   (:require [clojure.data.generators :as data.generators]
-            [clojure.string :as string]
+            [clojure.string :as s]
             [nl.surf.constraints :as constraints]
             [nl.surf.generators :as gen]
+            [nl.surf.date-util :as date-util]
             [nl.surf.world :as world]))
 
 (def programme-names-by-field-of-study (-> "nl/programme-names.yml" gen/yaml-resource))
 (def fields-of-study (keys programme-names-by-field-of-study))
+(def course-name-formats ["Inleiding tot %s"
+                          "Geschiedenis van de %s"
+                          "Filosofie van %s"
+                          "Psychologie van de %s"
+                          "Wiskunde van de %s"
+                          "Macro %s"
+                          "Micro %s"
+                          "%s in de praktijk"
+                          "%s in de vorige eeuw"
+                          "%s van de toekomst"
+                          "%s voor gevorderden"])
 
 (defn abbreviate
   [name]
   {:pre [(seq name)]}
-  (->> (string/split name #"[^a-zA-Z]")
+  (->> (s/split name #"[^a-zA-Z]")
        (map first)
        (apply str)
-       (string/upper-case)))
+       (s/upper-case)))
 
-(def address-generator
-  (gen/format "%s %d\n%d %c%c  %s"
-              (-> "nl/street-names.txt" gen/lines-resource gen/one-of)
-              (gen/int 1 200)
-              (gen/int 1011 9999)
+(defn date-generator
+  [^String lo, ^String hi, gen]
+  (fn [world]
+    (let [lo (date-util/->msecs-since-epoch (date-util/parse-date lo))
+          hi (date-util/->msecs-since-epoch (date-util/parse-date hi))]
+      (date-util/<-msecs-since-epoch ((gen lo hi) world)))))
+
+(def brin-generator
+  (gen/format "%c%c%c%c"
+              (gen/char \0 \9)
+              (gen/char \0 \9)
               (gen/char \A \Z)
-              (gen/char \A \Z)
-              (fn [{{city :institution/address-city} :entity}] city)))
+              (gen/char \A \Z)))
+
+(def lorum-ipsum
+  (-> "lorum-ipsum.txt" gen/resource (gen/text :lines 10)))
 
 (def attributes
   #{
     {:name :service/owner
      :deps [[:service/institution :institution/name]]}
+    {:name      :service/logo
+     :generator (constantly "https://example.com/logo.png")}
+    {:name      :service/specification
+     :generator (constantly "TODO")}
+    {:name      :service/documentation
+     :generator (constantly "TODO")}
+    {:name      :service/courseLevels
+     :generator (constantly "TODO")}
+    {:name      :service/roomTypes
+     :generator (constantly "TODO")}
     {:name      :service/institution
      :deps      [[:institution/institutionId]]
      :generator (world/pick-ref)}
-    {:name      :service/logo
-     :generator (constantly "https://example.com/logo.png")}
-    ;; TODO Fill in rest of service attributes
+
+    ;;;;;;;;;;;;;;;;;;;;
 
     {:name      :institution/institutionId
      :generator (gen/uuid)}
+    {:name      :institution/brin
+     :generator brin-generator}
     {:name      :institution/name
      :generator (gen/format "%s van %s"
                             (gen/one-of ["Universiteit" "Hogeschool" "Academie"])
                             (fn [{[city] :dep-vals}]
                               city))
-     :deps      [[:institution/address-city]]}
+     :deps      [[:institution/addressCity]]}
+    {:name      :institution/description
+     :generator lorum-ipsum}
+    {:name      :institution/academicCalendar
+     :generator (constantly "https://to.some/random/location")}
     {:name      :institution/address
-     :generator address-generator
-     :deps      [[:institution/address-city]]}
-    {:name      :institution/address-city
+     :generator (gen/format "%s %d\n%d %c%c  %s"
+                            (-> "nl/street-names.txt" gen/lines-resource gen/one-of)
+                            (gen/int 1 200)
+                            (gen/int 1011 9999)
+                            (gen/char \A \Z)
+                            (gen/char \A \Z)
+                            (fn [{{city :institution/addressCity} :entity}] city))
+     :deps      [[:institution/addressCity]]}
+    {:name      :institution/addressCity
      :generator (-> "nl/city-names.txt" gen/lines-resource gen/one-of)}
-    ;; TODO Fill in rest of institution attributes note: we don't need
-    ;; links to educational-programmes, since they're all linked to
-    ;; the institution by definition.
+    {:name      :institution/logo
+     :generator (constantly "https://to.some/random/location")}
 
     {:name      :educational-programme/educationalProgrammeId
      :generator (gen/uuid)}
     {:name      :educational-programme/name
-     :deps      [[:educational-programme/field-of-study]]
-     :generator (fn [{{field :educational-programme/field-of-study} :entity :as world}]
+     :deps      [[:educational-programme/fieldsOfStudy]]
+     :generator (fn [{[field] :dep-vals :as world}]
                   ((gen/one-of (programme-names-by-field-of-study field)) world))}
-    {:name      :educational-programme/field-of-study
+    {:name      :educational-programme/description
+     :generator lorum-ipsum}
+    {:name      :educational-programme/termStartDate
+     :generator (fn [world]
+                  (date-util/nth-weekday-of 0 date-util/monday
+                                            ((gen/int 1990 2018) world)
+                                            ((gen/one-of [date-util/september date-util/february]) world)))}
+    {:name      :educational-programme/termEndDate
+     :generator (fn [{[start-date] :dep-vals :as world}]
+                  (let [max-year   2018
+                        start-year (inc (date-util/get start-date date-util/year))]
+                    (when (and (< start-year max-year)
+                               (= 0 ((gen/int 0 4) world)))
+                      (let [year ((gen/int start-year max-year) world)]
+                        (date-util/last-day-of year ((gen/one-of [date-util/august date-util/january]) world))))))
+     :deps      [[:educational-programme/termStartDate]]}
+    {:name      :educational-programme/ects
+     :generator (fn [world]
+                  (* ((gen/int 2 8) world) 30))}
+    {:name      :educational-programme/mainLanguage
+     :generator (gen/one-of ["NL-nl" "EN-gb"])}
+    {:name      :educational-programme/qualificationAwarded
+     :generator (constantly "TODO")}
+    {:name      :educational-programme/lengthOfProgramme
+     :deps      [[:educational-programme/ects]]
+     :generator (fn [{[ects] :dep-vals :as world}]
+                  (-> ects (/ 60) (* 12) int))} ;; TODO how many months in a year?
+    {:name      :educational-programme/levelOfQualification
+     :generator (constantly "TODO")}
+    {:name      :educational-programme/fieldsOfStudy
      :generator (gen/one-of fields-of-study)}
-    ;; TODO Fill in rest of educational programme
+    {:name      :educational-programme/profileOfProgramme
+     :generator lorum-ipsum}
+    {:name      :educational-programme/programmeLearningOutcomes
+     :generator lorum-ipsum}
+    {:name      :educational-programme/modeOfStudy
+     :generator (gen/weighted {"full-time"  5
+                               "part-time"  2
+                               "dual"       1
+                               "e-learning" 2})}
+
+    ;;;;;;;;;;;;;;;;;;;;
 
     {:name        :course/courseId
      :generator   (gen/int)
      :constraints [constraints/unique]}
-    {:name      :course/name ;; TODO from list of names, depends on educational programme
-     :generator (gen/string)}
+    {:name      :course/name
+     :deps      [[:course/educationalProgramme :educational-programme/fieldsOfStudy]]
+     :generator (fn [{[field] :dep-vals :as world}]
+                  ((gen/format ((gen/one-of course-name-formats) world)
+                               (gen/one-of (get programme-names-by-field-of-study field))) world))}
     {:name      :course/abbreviation
      :deps      [[:course/name]]
      :generator (fn [{[name] :dep-vals}]
@@ -75,11 +157,54 @@
     {:name      :course/ects
      :generator (fn [_]
                   (* 2.5 (data.generators/geometric (/ 1.0 2.5))))}
+    {:name      :course/description
+     :generator lorum-ipsum}
+    {:name      :course/learningOutcomes
+     :generator lorum-ipsum}
+    {:name      :course/goals
+     :generator lorum-ipsum}
+    {:name      :course/requirements
+     :deps      [[:course/name]]
+     :generator (fn [{{:keys [course]} :world
+                      [name]           :dep-vals
+                      :as              world}]
+                  (when (= 0 ((gen/int 0 2) world))
+                    ((gen/one-of (filter (fn [v] (not= name (:course/name v)))
+                                         (map :course/name course)))
+                     world)))}
+    {:name      :course/level
+     :generator (constantly "TODO")}
+    {:name      :course/format
+     :generator (constantly "TODO")}
+    {:name      :course/modeOfDelivery
+     :generator (constantly "TODO")}
+    {:name      :course/mainLanguage
+     :generator (constantly "TODO")}
+    {:name      :course/enrollment
+     :generator lorum-ipsum}
+    {:name      :course/resources
+     :generator lorum-ipsum}
+    {:name      :course/exams
+     :generator lorum-ipsum}
+    {:name      :course/schedule
+     :generator (gen/weighted {"1e periode" 2
+                               "2e periode" 2
+                               "3e periode" 2
+                               "4e periode" 2
+                               "jan-feb"    1
+                               "feb-mrt"    1
+                               "mrt-apr"    1
+                               "apr-mei"    1
+                               "mei-jun"    1
+                               "jun-jul"    1
+                               "sep-okt"    1
+                               "okt-nov"    1
+                               "nov-dec"    1})}
     {:name      :course/educationalProgramme
      :deps      [[:educational-programme/educationalProgrammeId]]
      :generator (world/pick-ref)}
-    ;; TODO Fill in rest of course
 
+    ;;;;;;;;;;;;;;;;;;;;
 
     {:name      :course-offering/courseOfferingId
      :generator (gen/uuid)}
@@ -89,11 +214,16 @@
     {:name      :course-offering/maxNumberStudents
      :generator (fn [_]
                   (+ 5 (data.generators/geometric (/ 1.0 20))))}
+    {:name      :course-offering/currentNumberStudents
+     :generator (constantly "TODO")}
+    {:name      :course-offering/academicYear
+     :generator (constantly "TODO")}
+    {:name      :course-offering/period
+     :generator (constantly "TODO")}
 
-    ;; TODO Fill in rest of courseOffering
+    ;;;;;;;;;;;;;;;;;;;;
 
-    ;; Lecturer links people to courseOfferings
-    ;; people can only teach a courseOffering once
+    ;; Lecturer links people to courseOfferings, people can only teach a courseOffering once
     {:name      :lecturer/refs
      :deps      [[:person/personId] [:course-offering/courseOfferingId]]
      :generator (world/pick-unique-refs)}
@@ -106,15 +236,50 @@
      :generator (fn [{[[_ courseOffering]] :dep-vals}]
                   courseOffering)}
 
+    ;;;;;;;;;;;;;;;;;;;;
+
     {:name      :person/personId
      :generator (gen/uuid)}
-    {:name      :person/name
-     :generator (gen/format "%s %s"
-                            (-> "nl/first-names.txt" gen/lines-resource gen/one-of)
-                            (-> "nl/last-names.txt" gen/lines-resource gen/one-of))}
-    ;; TODO Fill in rest of person properties
+    {:name      :person/givenName
+     :generator (-> "nl/first-names.txt" gen/lines-resource gen/one-of)}
+    {:name      :person/surname
+     :generator (-> "nl/last-names.txt" gen/lines-resource gen/one-of)}
+    {:name      :person/surnamePrefix
+     :generator (gen/weighted {nil       50
+                               "van"     3
+                               "van de"  3
+                               "van het" 3
+                               "van 't"  2
+                               "in de"   2
+                               "in 't"   2
+                               "aan de"  1
+                               "aan het" 1
+                               "bij"     1
+                               "bij de"  1
+                               "bij het" 1
+                               "op de"   1
+                               "op het"  1
+                               "op 't"   1})}
+    {:name      :person/displayName
+     :deps      [[:person/title] [:person/givenName] [:person/surnamePrefix] [:person/surname]]
+     :generator (fn [{:keys [dep-vals]}]
+                  (->> dep-vals (filter identity) (s/join " ")))}
+#_    {:name      :person/dateOfBirth
+     :generator (date-generator "1980-01-01" "2005-01-01" gen/int-log)}
 
-    })
+    {:name      :person/title
+     :generator (gen/weighted {nil     50
+                               "dr."   4
+                               "mr."   4
+                               "ir."   4
+                               "ing."  5
+                               "drs."  4
+                               "prof." 4
+                               "bacc." 2
+                               "kand." 2})}
+
+
+    }  )
 
 
 

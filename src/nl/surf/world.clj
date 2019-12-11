@@ -1,7 +1,7 @@
 (ns nl.surf.world
   (:require [clojure.data.generators :as data.generators]
             [clojure.math.combinatorics :as combo]
-            [clojure.string :as string]))
+            [clojure.string :as s]))
 
 (let [flatten-deps (fn [attr] (assoc attr :flat-deps (set (apply concat (:deps attr)))))
       independent? (fn [attr] (-> attr :flat-deps empty?))
@@ -85,7 +85,7 @@
             taken     (set (values world name))
             free      (remove taken (combinations world ref-types))]
         (when (empty? free)
-          (throw (ex-info (str "No unique refs to " (string/join ", " ref-types) " available for " name)
+          (throw (ex-info (str "No unique refs to " (s/join ", " ref-types) " available for " name)
                           {:name     name
                            :ref-types ref-types})))
         (apply data.generators/one-of free)))))
