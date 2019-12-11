@@ -205,6 +205,9 @@
     {:name      :course/educationalProgramme
      :deps      [[:educational-programme/educationalProgrammeId]]
      :generator (world/pick-ref)}
+    {:name      :course/coordinator
+     :deps      [[:person/personId]]
+     :generator (world/pick-ref)}
 
     ;;;;;;;;;;;;;;;;;;;;
 
@@ -266,8 +269,8 @@
      :deps      [[:person/title] [:person/givenName] [:person/surnamePrefix] [:person/surname]]
      :generator (fn [{:keys [dep-vals]}]
                   (->> dep-vals (filter identity) (s/join " ")))}
-#_    {:name      :person/dateOfBirth
-     :generator (date-generator "1980-01-01" "2005-01-01" gen/int-log)}
+    #_    {:name      :person/dateOfBirth
+           :generator (date-generator "1980-01-01" "2005-01-01" gen/int-log)}
 
     {:name      :person/title
      :generator (gen/weighted {nil     50
@@ -291,6 +294,10 @@
             (world/get-entity world person)))
         (:lecturer world)))
 
+(defn person-link
+  [{:person/keys [displayName personId]}]
+  {:href  (str "/persons/" personId)
+   :title displayName})
 
 (def export-conf
   {"/"                       {:type       :service
@@ -318,9 +325,7 @@
                                                                     :attributes  {:course/educationalProgramme {:hidden? true}}}}
                               :pre        (fn [{:course-offering/keys [courseOfferingId] :as e} world]
                                             (assoc e :links [{:_self     {:href (str "/course-offerings/" courseOfferingId)}
-                                                              :lecturers (mapv (fn [{:person/keys [displayName personId]}]
-                                                                                 {:href  (str "/persons/" personId)
-                                                                                  :title displayName})
+                                                              :lecturers (mapv person-link
                                                                                (lecturers-for-offering world courseOfferingId))}]))}
    "/persons"                {:type :person
                               :pre  (fn [{:person/keys [personId] :as e} _]
@@ -330,7 +335,12 @@
                                         ; only supports students
                                                        ]))}
    "/courses"                {:type       :course
-                              :attributes {:course/educationalProgramme {:hidden? true}}}})
+                              :attributes {:course/educationalProgramme {:hidden? true}
+                                           :course/coordinator {:hidden? true}}
+                              :pre (fn [{:course/keys [courseId coordinator] :as e} world]
+                                     (assoc e :links [{:_self {:href (str "/courses/" courseId)}
+                                                       :coordinator (person-link (world/get-entity world coordinator))}])
+                                     )}})
 
 
 ;;(world/gen attributes {:service 1 :institution 1, :educational-programme 3, :course 15, :lecturer 30, :course-offering 30 :person 30})
