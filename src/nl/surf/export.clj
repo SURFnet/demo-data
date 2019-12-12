@@ -1,5 +1,7 @@
 (ns nl.surf.export
-  (:require [nl.surf.world :as world]))
+  (:require [nl.surf.date-util :as date-util]
+            [nl.surf.world :as world])
+  (:import java.util.Calendar))
 
 (defn export-key
   [k]
@@ -15,6 +17,9 @@
         (string? v)
         (nil? v))
     v
+
+    (instance? Calendar v)
+    (date-util/rfc3339-date v)
 
     (map? v)
     (into {}
