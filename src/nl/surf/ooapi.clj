@@ -365,6 +365,20 @@
             (world/get-entity world person)))
         (:lecturer world)))
 
+(defn offerings-for-course
+  [world course-id]
+  (->> world
+       :course-offering
+       (filter #(= (second (:course-offering/course %)) course-id))))
+
+(defn lecturers-for-course
+  [world course-id]
+  (->> course-id
+       (offerings-for-course world)
+       (map :course-offering/courseOfferingId)
+       (mapcat #(lecturers-for-offering world %))
+       set))
+
 (defn person-link
   [{:person/keys [displayName personId]}]
   {:href  (str "/persons/" personId)
@@ -407,10 +421,12 @@
                                                        ]))}
    "/courses"                {:type       :course
                               :attributes {:course/educationalProgramme {:hidden? true}
-                                           :course/coordinator {:hidden? true}}
-                              :pre (fn [{:course/keys [courseId coordinator] :as e} world]
-                                     (assoc e :links [{:_self {:href (str "/courses/" courseId)}
-                                                       :coordinator (person-link (world/get-entity world coordinator))}]))}})
+                                           :course/coordinator          {:hidden? true}}
+                              :pre        (fn [{:course/keys [courseId coordinator] :as e} world]
+                                            (assoc e :links [{:_self       {:href (str "/courses/" courseId)}
+                                                              :coordinator (person-link (world/get-entity world coordinator))
+                                                              :lecturers   (map person-link (lecturers-for-course world courseId))
+                                                              :courseOfferings {:href (str "/course-offerings?courseId=" courseId)}}]))}})
 
 
 ;;(world/gen attributes {:service 1 :institution 1, :educational-programme 3, :course 15, :lecturer 30, :course-offering 30 :person 30})
