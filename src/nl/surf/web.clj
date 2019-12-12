@@ -3,19 +3,21 @@
             [nl.surf.export :as export]
             [nl.surf.world :as world]
             [clojure.string :as s]
+            [clojure.data.generators :as dgen]
             [hiccup.core :as hiccup]
             [ring.middleware.params :refer [wrap-params]]
             [ring.adapter.jetty :refer [run-jetty]]))
 
 (def data
-  (export/export (world/gen ooapi/attributes {:service 1
-                                              :institution 1
-                                              :educational-programme 2
-                                              :course 5
-                                              :lecturer 20
-                                              :course-offering 10
-                                              :person 15})
-                 ooapi/export-conf))
+  (binding [dgen/*rnd* (java.util.Random. 42)]
+    (export/export (world/gen ooapi/attributes {:service               1
+                                                :institution           1
+                                                :educational-programme 2
+                                                :course                5
+                                                :lecturer              20
+                                                :course-offering       10
+                                                :person                15})
+                   ooapi/export-conf)))
 
 (declare render-map)
 (declare render-coll)
@@ -47,6 +49,7 @@
    [:html
     [:head
      [:title "OOAPI"]
+     [:meta {:charset "UTF-8"}]
      [:style "body > ul > li { border-top: 2px solid black }"]]
     [:body
      (render data)]]))

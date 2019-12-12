@@ -78,7 +78,9 @@
     (gen/weighted m)))
 
 (defn weighted-set
-  "Build a generator to pick a set of weighted `m`."
+  "Build a generator to pick a set of weighted `m`.
+
+  TODO FIXME"
   [m]
   (fn [_]
     (set (repeatedly (count m) #(gen/weighted m)))))

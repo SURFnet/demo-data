@@ -47,8 +47,8 @@
 (defn faculity-member? [affiliations]
   (seq (set/intersection #{"employee" "staff"} affiliations)))
 
-(def lorum-ipsum
-  (-> "lorum-ipsum.txt" gen/resource (gen/text :lines 10)))
+(def bijbel-bla
+  (-> "nl/bijbel.txt" gen/resource (gen/text :lines 10)))
 
 (def attributes
   #{
@@ -86,7 +86,7 @@
      :generator (fn [{[name] :dep-vals :as world}]
                   (-> name s/lower-case s/trim (s/replace #"[^a-z0-9]+" "-") (str ".nl")))}
     {:name      :institution/description
-     :generator lorum-ipsum}
+     :generator bijbel-bla}
     {:name      :institution/academicCalendar
      :generator (constantly "https://to.some/random/location")}
     {:name      :institution/address
@@ -111,7 +111,7 @@
      :generator (fn [{[field] :dep-vals :as world}]
                   ((gen/one-of (programme-names-by-field-of-study field)) world))}
     {:name      :educational-programme/description
-     :generator lorum-ipsum}
+     :generator bijbel-bla}
     {:name      :educational-programme/termStartDate
      :generator (fn [world]
                   (date-util/nth-weekday-of 0 date-util/monday
@@ -150,9 +150,9 @@
     {:name      :educational-programme/fieldsOfStudy
      :generator (gen/one-of fields-of-study)}
     {:name      :educational-programme/profileOfProgramme
-     :generator lorum-ipsum}
+     :generator bijbel-bla}
     {:name      :educational-programme/programmeLearningOutcomes
-     :generator lorum-ipsum}
+     :generator bijbel-bla}
     {:name      :educational-programme/modeOfStudy
      :generator (gen/weighted {"full-time"  5
                                "part-time"  2
@@ -179,11 +179,11 @@
      :generator (fn [world]
                   (- 60 (* 2.5 ((gen/int-cubic 1 24) world))))}
     {:name      :course/description
-     :generator lorum-ipsum}
+     :generator bijbel-bla}
     {:name      :course/learningOutcomes
-     :generator lorum-ipsum}
+     :generator bijbel-bla}
     {:name      :course/goals
-     :generator lorum-ipsum}
+     :generator bijbel-bla}
     {:name      :course/requirements
      :deps      [[:course/name]]
      :generator (fn [{{:keys [course]} :world
@@ -198,7 +198,8 @@
      :generator (fn [{{[service] :service} :world :as world}]
                   ((gen/one-of (:service/courseLevels service)) world))}
     {:name      :course/format
-     :generator (gen/weighted-set {"TODO" 1})}
+     :generator (gen/weighted-set {"practicum" 1
+                                   "hoorcollege" 1})}
     {:name      :course/modeOfDelivery
      :generator (gen/weighted-set {"e-learning"   1
                                    "face-to-face" 2
@@ -207,11 +208,11 @@
      :generator (gen/weighted-set {"NL-nl" 5
                                    "GB-en" 1})}
     {:name      :course/enrollment
-     :generator lorum-ipsum}
+     :generator bijbel-bla}
     {:name      :course/resources
-     :generator lorum-ipsum}
+     :generator bijbel-bla}
     {:name      :course/exams
-     :generator lorum-ipsum}
+     :generator bijbel-bla}
     {:name      :course/schedule
      :generator (gen/weighted {"1e periode" 2
                                "2e periode" 2
