@@ -108,6 +108,7 @@
         value))))
 
 (def ^:dynamic *retries* 1000)
+(def ^:dynamic *retry-attempt-nr* 0)
 
 (defn- compose-constraints
   "Compose a collection of constraints into a single constraint
@@ -131,7 +132,8 @@
   [generator constraints]
   (fn [state]
     (loop [attempts *retries*]
-      (let [val (generator state)]
+      (let [val (binding [*retry-attempt-nr* (- *retries* attempts)]
+                  (generator state))]
         (if ((compose-constraints constraints) state val)
           val
           (if (pos? attempts)

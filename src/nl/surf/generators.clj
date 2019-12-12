@@ -29,6 +29,28 @@
    (fn [_]
      (gen/uniform lo (inc hi)))))
 
+(defn bigdec-cubic
+  "Build a generator to pick a long distributed between `lo` and `hi`, both
+  inclusive.  This generator has cubic biased toward `hi`."
+  [lo hi]
+  (fn [_]
+    (let [d (bigdec (- hi lo))]
+      (+ lo (Math/cbrt (* (.nextDouble gen/*rnd*) (* d d d)))))))
+
+(defn int-cubic
+  "Like `bigdec-cubic` but returns an int."
+  [lo hi]
+  (fn [_]
+    (core/int ((bigdec-cubic lo hi) _))))
+
+(defn int-log
+  "Build a generator to pick a long distributed between `lo` and `hi`, both
+  inclusive.  This generator has logarithmic biased toward `hi`."
+  [lo hi]
+  (fn [_]
+    (let [d (- hi lo)]
+      (core/int (+ lo (Math/log (* (.nextDouble gen/*rnd*) (Math/exp d))))))))
+
 (defn char
   "Build a generator to pick a character uniformly distributed between `lo` and
   `hi`, both inclusive.  Without boundaries a printable ASCII character is
@@ -54,6 +76,12 @@
   [m]
   (fn [_]
     (gen/weighted m)))
+
+(defn weighted-set
+  "Build a generator to pick a set of weighted `m`."
+  [m]
+  (fn [_]
+    (set (repeatedly (count m) #(gen/weighted m)))))
 
 (defn format
   "Build a generator for strings using a `fmt` as in `clojure.core/format` and

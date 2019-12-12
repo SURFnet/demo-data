@@ -1,10 +1,10 @@
 (ns nl.surf.ooapi
-  (:require [clojure.data.generators :as data.generators]
+  (:require [clojure.set :as set]
             [clojure.string :as s]
             [nl.surf.constraints :as constraints]
-            [nl.surf.generators :as gen]
             [nl.surf.date-util :as date-util]
             [nl.surf.export :as export]
+            [nl.surf.generators :as gen]
             [nl.surf.world :as world]))
 
 
@@ -44,6 +44,9 @@
               (gen/char \A \Z)
               (gen/char \A \Z)))
 
+(defn faculity-member? [affiliations]
+  (seq (set/intersection #{"employee" "staff"} affiliations)))
+
 (def lorum-ipsum
   (-> "lorum-ipsum.txt" gen/resource (gen/text :lines 10)))
 
@@ -54,29 +57,34 @@
     {:name      :service/logo
      :generator (constantly "https://example.com/logo.png")}
     {:name      :service/specification
-     :generator (constantly "TODO")}
+     :generator (constantly "https://example.com/specification")}
     {:name      :service/documentation
-     :generator (constantly "TODO")}
+     :generator (constantly "https://example.com/documentation")}
     {:name      :service/courseLevels
-     :generator (constantly "TODO")}
+     :generator (constantly ["Bachelor" "Master"])}
     {:name      :service/roomTypes
-     :generator (constantly "TODO")}
+     :generator (constantly ["General purpose", "Lecture hall" , "PC lab"])}
     {:name      :service/institution
      :deps      [[:institution/institutionId]]
      :generator (world/pick-ref)}
 
     ;;;;;;;;;;;;;;;;;;;;
 
-    {:name      :institution/institutionId
-     :generator (gen/uuid)}
+    {:name        :institution/institutionId
+     :generator   (gen/int)
+     :constraints [constraints/unique]}
     {:name      :institution/brin
      :generator brin-generator}
     {:name      :institution/name
+     :deps      [[:institution/addressCity]]
      :generator (gen/format "%s van %s"
                             (gen/one-of ["Universiteit" "Hogeschool" "Academie"])
                             (fn [{[city] :dep-vals}]
-                              city))
-     :deps      [[:institution/addressCity]]}
+                              city))}
+    {:name      :institution/domain
+     :deps      [[:institution/name]]
+     :generator (fn [{[name] :dep-vals :as world}]
+                  (-> name s/lower-case s/trim (s/replace #"[^a-z0-9]+" "-") (str ".nl")))}
     {:name      :institution/description
      :generator lorum-ipsum}
     {:name      :institution/academicCalendar
@@ -95,8 +103,9 @@
     {:name      :institution/logo
      :generator (constantly "https://to.some/random/location")}
 
-    {:name      :educational-programme/educationalProgrammeId
-     :generator (gen/uuid)}
+    {:name        :educational-programme/educationalProgrammeId
+     :generator   (gen/int)
+     :constraints [constraints/unique]}
     {:name      :educational-programme/name
      :deps      [[:educational-programme/fieldsOfStudy]]
      :generator (fn [{[field] :dep-vals :as world}]
@@ -118,18 +127,26 @@
                         (date-util/last-day-of year ((gen/one-of [date-util/august date-util/january]) world))))))
      :deps      [[:educational-programme/termStartDate]]}
     {:name      :educational-programme/ects
-     :generator (fn [world]
-                  (* ((gen/int 2 8) world) 30))}
+     :deps      [[:educational-programme/levelOfQualification]]
+     :generator (fn [{[level] :dep-vals :as world}]
+                  (if (= "Bachelor")
+                    (* ((gen/int 2 8) world) 30)
+                    (* ((gen/int-cubic 2 8) world) 30)))}
     {:name      :educational-programme/mainLanguage
-     :generator (gen/one-of ["NL-nl" "EN-gb"])}
+     :generator (gen/weighted-set {"NL-nl" 5
+                                   "GB-en" 1})}
     {:name      :educational-programme/qualificationAwarded
-     :generator (constantly "TODO")}
+     :deps      [[:educational-programme/levelOfQualification] [:educational-programme/name]]
+     :generator (fn [{[level name] :dep-vals}]
+                  (format "%s of %s" level name))}
     {:name      :educational-programme/lengthOfProgramme
      :deps      [[:educational-programme/ects]]
      :generator (fn [{[ects] :dep-vals :as world}]
-                  (-> ects (/ 60) (* 12) int))} ;; TODO how many months in a year?
+                  (-> ects (/ 60) (* 12) int))}
     {:name      :educational-programme/levelOfQualification
-     :generator (constantly "TODO")}
+     :deps      [[:service/courseLevels]]
+     :generator (fn [{{[service] :service} :world :as world}]
+                  ((gen/one-of (:service/courseLevels service)) world))}
     {:name      :educational-programme/fieldsOfStudy
      :generator (gen/one-of fields-of-study)}
     {:name      :educational-programme/profileOfProgramme
@@ -152,13 +169,15 @@
      :generator (fn [{[field] :dep-vals :as world}]
                   ((gen/format ((gen/one-of course-name-formats) world)
                                (gen/one-of (get programme-names-by-field-of-study field))) world))}
-    {:name      :course/abbreviation
-     :deps      [[:course/name]]
-     :generator (fn [{[name] :dep-vals}]
-                  (abbreviate name))} ;; TODO should be unique
+    {:name        :course/abbreviation
+     :deps        [[:course/name]]
+     :generator   (fn [{[name] :dep-vals}]
+                    (str (abbreviate name)
+                         (when (> world/*retry-attempt-nr* 0) world/*retry-attempt-nr*)))
+     :constraints [constraints/unique]}
     {:name      :course/ects
-     :generator (fn [_]
-                  (* 2.5 (data.generators/geometric (/ 1.0 2.5))))}
+     :generator (fn [world]
+                  (- 60 (* 2.5 ((gen/int-cubic 1 24) world))))}
     {:name      :course/description
      :generator lorum-ipsum}
     {:name      :course/learningOutcomes
@@ -175,13 +194,18 @@
                                          (map :course/name course)))
                      world)))}
     {:name      :course/level
-     :generator (constantly "TODO")}
+     :deps      [[:service/courseLevels]]
+     :generator (fn [{{[service] :service} :world :as world}]
+                  ((gen/one-of (:service/courseLevels service)) world))}
     {:name      :course/format
-     :generator (constantly "TODO")}
+     :generator (gen/weighted-set {"TODO" 1})}
     {:name      :course/modeOfDelivery
-     :generator (constantly "TODO")}
+     :generator (gen/weighted-set {"e-learning"   1
+                                   "face-to-face" 2
+                                   "class-room"   20})}
     {:name      :course/mainLanguage
-     :generator (constantly "TODO")}
+     :generator (gen/weighted-set {"NL-nl" 5
+                                   "GB-en" 1})}
     {:name      :course/enrollment
      :generator lorum-ipsum}
     {:name      :course/resources
@@ -211,20 +235,27 @@
 
     ;;;;;;;;;;;;;;;;;;;;
 
-    {:name      :course-offering/courseOfferingId
-     :generator (gen/uuid)}
+    {:name        :course-offering/courseOfferingId
+     :generator   (gen/int)
+     :constraints [constraints/unique]}
     {:name      :course-offering/course
      :deps      [[:course/courseId]]
      :generator (world/pick-ref)}
     {:name      :course-offering/maxNumberStudents
-     :generator (fn [_]
-                  (+ 5 (data.generators/geometric (/ 1.0 20))))}
+     :generator (gen/int-cubic 20 50)}
     {:name      :course-offering/currentNumberStudents
-     :generator (constantly "TODO")}
+     :deps      [[:course-offering/maxNumberStudents]]
+     :generator (fn [{[max] :dep-vals :as world}]
+                  ((gen/int-cubic 10 max) world))}
     {:name      :course-offering/academicYear
-     :generator (constantly "TODO")}
+     :generator (fn [world]
+                  (let [year ((gen/int 1995 2020) world)]
+                    (format "%d-%d" year (inc year))))}
     {:name      :course-offering/period
-     :generator (constantly "TODO")}
+     :generator (gen/one-of ["1e periode"
+                             "2e periode"
+                             "3e periode"
+                             "4e periode"])}
 
     ;;;;;;;;;;;;;;;;;;;;
 
@@ -243,8 +274,9 @@
 
     ;;;;;;;;;;;;;;;;;;;;
 
-    {:name      :person/personId
-     :generator (gen/uuid)}
+    {:name        :person/personId
+     :generator   (gen/int)
+     :constraints [constraints/unique]}
     {:name      :person/givenName
      :generator (-> "nl/first-names.txt" gen/lines-resource gen/one-of)}
     {:name      :person/surname
@@ -269,9 +301,43 @@
      :deps      [[:person/title] [:person/givenName] [:person/surnamePrefix] [:person/surname]]
      :generator (fn [{:keys [dep-vals]}]
                   (->> dep-vals (filter identity) (s/join " ")))}
-    #_    {:name      :person/dateOfBirth
-           :generator (date-generator "1980-01-01" "2005-01-01" gen/int-log)}
-
+    {:name      :person/dateOfBirth
+     :deps      [[:person/affiliations]]
+     :generator (fn [{[affiliations] :dep-vals :as world}]
+                  (let [[min max] (if (faculity-member? affiliations)
+                                    ["1950-01-01" "2000-01-01"]
+                                    ["1990-01-01" "2005-01-01"])]
+                    ((date-generator min max  gen/bigdec-cubic) world)))}
+    {:name      :person/affiliations
+     :generator (constantly #{"employee"})}
+    {:name        :person/mail
+     :deps        [[:institution/domain]
+                   [:person/givenName] [:person/surnamePrefix] [:person/surname]]
+     :generator   (fn [{{[institution] :institution} :world
+                        [_ & name]                   :dep-vals}]
+                    (str (-> (->> name (filter identity) (s/join " "))
+                             s/trim
+                             s/lower-case
+                             (s/replace #"[^a-z0-9]+" "."))
+                         (when (> world/*retry-attempt-nr* 0) world/*retry-attempt-nr*)
+                         "@" (:institution/domain institution)))
+     :constraints [constraints/unique]}
+    {:name      :person/telephoneNumber
+     :generator (gen/format "0%09d"
+                            (gen/int 100000000 999999999))}
+    {:name        :person/mobileNumber
+     :generator   (gen/format "06%08d"
+                              (gen/int 0 99999999))
+     :constraints [constraints/unique]}
+    {:name      :person/photoSocial
+     :generator (constantly "https://docs.atlassian.com/aui/8.4.1/docs/images/avatar-person.svg")}
+    {:name      :person/photoOfficial
+     :generator (constantly "https://docs.atlassian.com/aui/8.4.1/docs/images/avatar-person.svg")}
+    {:name      :person/gender
+     :generator (gen/weighted {"M" 46
+                               "F" 50
+                               "X" 2
+                               "U" 2})}
     {:name      :person/title
      :generator (gen/weighted {nil     50
                                "dr."   4
@@ -282,9 +348,14 @@
                                "prof." 4
                                "bacc." 2
                                "kand." 2})}
-
-
-    }  )
+    {:name      :person/office
+     :deps      [[:person/affiliations]]
+     :generator (fn [{[affiliations] :dep-vals :as world}]
+                  (when (faculity-member? affiliations)
+                    ((gen/format "%c%c%c %c.%c%c"
+                                 (gen/char \A \Z) (gen/char \A \Z) (gen/char \A \Z)
+                                 (gen/char \0 \9) (gen/char \0 \9) (gen/char \0 \9))
+                     world)))}})
 
 (defn lecturers-for-offering
   [world course-offering-id]
@@ -339,8 +410,7 @@
                                            :course/coordinator {:hidden? true}}
                               :pre (fn [{:course/keys [courseId coordinator] :as e} world]
                                      (assoc e :links [{:_self {:href (str "/courses/" courseId)}
-                                                       :coordinator (person-link (world/get-entity world coordinator))}])
-                                     )}})
+                                                       :coordinator (person-link (world/get-entity world coordinator))}]))}})
 
 
 ;;(world/gen attributes {:service 1 :institution 1, :educational-programme 3, :course 15, :lecturer 30, :course-offering 30 :person 30})
