@@ -13,18 +13,26 @@
     (export/export (world/gen ooapi/attributes {:service               1
                                                 :institution           1
                                                 :educational-programme 2
+                                                :course-programme      8
                                                 :course                5
                                                 :lecturer              20
                                                 :course-offering       10
                                                 :person                15})
                    ooapi/export-conf)))
 
+(def queries
+  {"/courses" {"educationalProgramme" (fn [programme-id]
+                                        (fn [course]
+                                          (some #(= (str "/educational-programmes/" programme-id)
+                                                    (:href %))
+                                                (get-in course [:links :educationalProgrammes]))))}})
+
 (declare render-map)
 (declare render-coll)
 
 (defn render [v]
   (cond
-    (map? v) (render-map v)
+    (map? v)  (render-map v)
     (coll? v) (render-coll v)
 
     :else
@@ -58,9 +66,11 @@
   (let [[_ root member] (re-find #"^(/.*?)(/.*)?$" uri)
         member          (when member (s/replace member #"^/" ""))
         filter-fn       (reduce (fn [m [k v]]
-                                  (let [k (keyword (str k "Id"))
-                                        v (str v)]
-                                    #(and (m %) (= v (str (get % k))))))
+                                  (if-let [query (get-in queries [root k])]
+                                    (query v)
+                                    (let [k (keyword (str k "Id"))
+                                          v (str v)]
+                                      #(and (m %) (= v (str (get % k)))))))
                                 (if member
                                   #(= (str (:id %)) member)
                                   identity)

@@ -3,7 +3,20 @@
             [clojure.math.combinatorics :as combo]
             [clojure.string :as s]))
 
-(let [flatten-deps (fn [attr] (assoc attr :flat-deps (set (apply concat (:deps attr)))))
+(defn- ref?
+  [prop]
+  (and (vector? prop)
+       (= 2 (count prop))
+       (qualified-keyword? (first prop))))
+
+(defn- join?
+  [prop]
+  (and (ref? prop)
+       (qualified-keyword? (second prop))))
+
+(let [flatten-dep (fn [dep]
+                    (mapcat #(if (vector? %) % [%]) dep))
+      flatten-deps (fn [attr] (assoc attr :flat-deps (set (mapcat flatten-dep (:deps attr)))))
       independent? (fn [attr] (-> attr :flat-deps empty?))
       dependent?   (complement independent?)
       remove-dep   (fn [name attr] (update attr :flat-deps #(disj (set %1) %2) name))
@@ -90,22 +103,32 @@
                            :ref-types ref-types})))
         (apply data.generators/one-of free)))))
 
-(defn get-entity
-  "Get entity with the given attribute - value pair"
+(defn get-entities
+  "Get all entities with the given attribute - value pair"
   [world [attr-name value]]
   (let [entity-type (-> attr-name namespace keyword)]
-    (first (filter #(= value (attr-name %)) (entity-type world)))))
+    (filter #(= value (attr-name %)) (entity-type world))))
+
+(defn get-entity
+  "Get first entity with the given ref (attribute - value pair; assumed to be unique)"
+  [world ref]
+  (first (get-entities world ref)))
 
 (defn lookup-path
   "Recursively lookup a value from path starting from an entity."
-  [{:keys [entity world]} path]
-  (loop [entity entity
-         path   path]
-    (let [prop  (first path)
-          value (get entity prop)]
-      (if-let [path (next path)]
-        (recur (get-entity world value) path)
-        value))))
+  [world entity path]
+  (let [prop  (first path)]
+    (if (join? prop)
+      (mapv #(lookup-path world % (next path))
+            (get-entities world [(first prop) [(second prop) (or (get entity (second prop))
+                                                                 (throw (ex-info (str "Cannot join on nil value for " (second prop))
+                                                                                 {:entity entity
+                                                                                  :join   prop
+                                                                                  :path   path})))]]))
+      (let [value (get entity prop)]
+        (if-let [path (next path)]
+          (recur world (get-entity world value) path)
+          value)))))
 
 (def ^:dynamic *retries* 1000)
 (def ^:dynamic *retry-attempt-nr* 0)
@@ -162,8 +185,7 @@
            (generator {:entity   entity
                        :attr     attr
                        :world    world
-                       :dep-vals (map (partial lookup-path {:entity entity :world world})
-                                      deps)}))))
+                       :dep-vals (map (partial lookup-path world entity) deps)}))))
 
 (defn- gen-attrs
   "Generate all properties for `attr`"

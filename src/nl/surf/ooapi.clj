@@ -159,16 +159,34 @@
                                "dual"       1
                                "e-learning" 2})}
 
+
+    ;;;;;;;;;;;;;;;;;;;;
+
+    {:name      :course-programme/refs
+     :deps      [[:course/id]  [:educational-programme/id]]
+     :generator (world/pick-unique-refs)}
+    {:name      :course-programme/course
+     :deps      [[:course-programme/refs]]
+     :generator (fn [{[[course]] :dep-vals}]
+                  course)}
+    {:name      :course-programme/educational-programme
+     :deps      [[:course-programme/refs]]
+     :generator (fn [{[[_ educational-programme]] :dep-vals}]
+                  educational-programme)}
+
     ;;;;;;;;;;;;;;;;;;;;
 
     {:name        :course/id
      :generator   (gen/int)
      :constraints [constraints/unique]}
     {:name      :course/name
-     :deps      [[:course/educationalProgramme :educational-programme/fieldsOfStudy]]
-     :generator (fn [{[field] :dep-vals :as world}]
-                  ((gen/format ((gen/one-of course-name-formats) world)
-                               (gen/one-of (get programme-names-by-field-of-study field))) world))}
+     ;; TODO: ensure that courses always have an educational-programme
+     :deps      [[[:course-programme/course :course/id] :course-programme/educational-programme :educational-programme/fieldsOfStudy]]
+     :generator (fn [{[fields] :dep-vals :as world}]
+                  (let [g (gen/one-of-each (map programme-names-by-field-of-study fields))]
+                    ((gen/format ((gen/one-of course-name-formats) world)
+                                 (fn [_] (s/join " en " (or (seq (g world))
+                                                            ["Tovenarij"])))) world)))}
     {:name        :course/abbreviation
      :deps        [[:course/name]]
      :generator   (fn [{[name] :dep-vals}]
@@ -198,7 +216,7 @@
      :generator (fn [{{[service] :service} :world :as world}]
                   ((gen/one-of (:service/courseLevels service)) world))}
     {:name      :course/format
-     :generator (gen/weighted-set {"practicum" 1
+     :generator (gen/weighted-set {"practicum"   1
                                    "hoorcollege" 1})}
     {:name      :course/modeOfDelivery
      :generator (gen/weighted-set {"e-learning"   1
@@ -227,13 +245,6 @@
                                "sep-okt"    1
                                "okt-nov"    1
                                "nov-dec"    1})}
-    {:name :course/educationalProgrammeId
-     :deps [[:course/educationalProgramme]]
-     :generator (fn [{[[_ id]] :dep-vals}]
-                  id)}
-    {:name      :course/educationalProgramme
-     :deps      [[:educational-programme/id]]
-     :generator (world/pick-ref)}
     {:name      :course/coordinator
      :deps      [[:person/id]]
      :generator (world/pick-ref)}
@@ -369,7 +380,7 @@
 (defn lecturers-for-offering
   [world course-offering-id]
   (keep (fn [{[_ id] :lecturer/courseOffering
-              person               :lecturer/person}]
+              person :lecturer/person}]
           (when (= course-offering-id id)
             (world/get-entity world person)))
         (:lecturer world)))
@@ -388,6 +399,14 @@
        (mapcat #(lecturers-for-offering world %))
        set))
 
+(defn programmes-for-course
+  [world course-id]
+  (keep (fn [{[_ id]    :course-programme/course
+              programme :course-programme/educational-programme}]
+          (when (= course-id id)
+            (world/get-entity world programme)))
+        (:course-programme world)))
+
 (defn person-link
   [{:person/keys [displayName id]}]
   {:href  (str "/persons/" id)
@@ -398,46 +417,48 @@
                               :singleton? true
                               :attributes {:service/institution {:hidden? true}}
                               :pre        (fn [e _]
-                                            (assoc e :links [{:_self {:href "/"}}
+                                            (assoc e :links {:_self {:href "/"}
                                                              :endpoints [{:href "/institution"}
                                                                          {:href "/educational-programmes"}
                                                                          {:href "/course-offerings"}
                                                                          {:href "/persons"}
-                                                                         {:href "/courses"}]]))}
+                                                                         {:href "/courses"}]}))}
    "/institution"            {:type       :institution
                               :singleton? true
                               :attributes {:institution/address-city {:hidden? true}}
                               :pre        (fn [e _]
-                                            (assoc e :links [{:_self {:href "/institution"}}
-                                                             {:educational-programmes {:href "/educational-programmes"}}]))}
+                                            (assoc e :links {:_self {:href "/institution"}
+                                                             :educational-programmes {:href "/educational-programmes"}}))}
    "/educational-programmes" {:type :educational-programme
                               :pre  (fn [{:educational-programme/keys [id] :as e} _]
-                                      (assoc e :links [{:_self {:href (str "/educational-programmes/" id)}}
-                                                       {:courses {:href (str "/courses?educationalProgramme=" id)}}]))}
+                                      (assoc e :links {:_self {:href (str "/educational-programmes/" id)}
+                                                       :courses {:href (str "/courses?educationalProgramme=" id)}}))}
    "/course-offerings"       {:type       :course-offering
                               :attributes {:course-offering/course {:follow-ref? true
                                                                     :attributes  {:course/educationalProgramme {:hidden? true}}}}
                               :pre        (fn [{:course-offering/keys [id] :as e} world]
-                                            (assoc e :links [{:_self     {:href (str "/course-offerings/" id)}
-                                                              :lecturers (mapv person-link
-                                                                               (lecturers-for-offering world id))}]))}
+                                            (assoc e :links {:_self     {:href (str "/course-offerings/" id)}
+                                                             :lecturers (mapv person-link
+                                                                              (lecturers-for-offering world id))}))}
    "/persons"                {:type :person
                               :pre  (fn [{:person/keys [id] :as e} _]
-                                      (assoc e :links [{:_self {:href (str "/persons/" id)}}
+                                      (assoc e :links {:_self {:href (str "/persons/" id)}}
                                         ; link to courses not
                                         ; implemented because that
                                         ; only supports students
-                                                       ]))}
+                                             ))}
    "/courses"                {:type       :course
-                              :attributes {:course/educationalProgramme {:hidden? true}
-                                           :course/coordinator          {:hidden? true}}
+                              :attributes {:course/coordinator {:hidden? true}}
                               :pre        (fn [{:course/keys [id coordinator] :as e} world]
-                                            (assoc e :links [{:_self       {:href (str "/courses/" id)}
-                                                              :coordinator (person-link (world/get-entity world coordinator))
-                                                              :lecturers   (map person-link (lecturers-for-course world id))
-                                                              :courseOfferings {:href (str "/course-offerings?course=" id)}}]))}})
+                                            (assoc e :links {:_self                 {:href (str "/courses/" id)}
+                                                             :coordinator           (person-link (world/get-entity world coordinator))
+                                                             :lecturers             (map person-link (lecturers-for-course world id))
+                                                             :courseOfferings       {:href (str "/course-offerings?course=" id)}
+                                                             :educationalProgrammes (map (fn [programme]
+                                                                                           {:href (str "/educational-programmes/" (:educational-programme/id programme))})
+                                                                                         (programmes-for-course world id))}))}})
 
 
-;;(world/gen attributes {:service 1 :institution 1, :educational-programme 3, :course 15, :lecturer 30, :course-offering 30 :person 30})
+;;(world/gen attributes {:service 1 :institution 1, :educational-programme 3, :course-programme 20 :course 15, :lecturer 30, :course-offering 30 :person 30})
 
-;;(export/export (world/gen attributes {:service 1 :institution 1, :educational-programme 2, :course 5, :lecturer 20, :course-offering 10 :person 15}) export-conf)
+;;(export/export (world/gen attributes {:service 1 :institution 1, :educational-programme 2, :course-programme 8 :course 5, :lecturer 20, :course-offering 10 :person 15}) export-conf)

@@ -1,12 +1,12 @@
 (ns nl.surf.world-test
-  (:require [clojure.test :refer [are deftest is]]
+  (:require [clojure.test :refer [are deftest is testing]]
             [clojure.string :as string]
             [nl.surf.generators :as gen]
-            [nl.surf.world :as sut]
+            [nl.surf.world :as world]
             [nl.surf.constraints :as constraints]))
 
 (deftest sort-attrs
-  (are [res attrs] (= res (sut/sort-attrs attrs))
+  (are [res attrs] (= res (world/sort-attrs attrs))
     [] []
 
     [{:name :a}
@@ -30,25 +30,25 @@
      {:name :b}])
 
   (is (thrown-with-msg? clojure.lang.ExceptionInfo #"circular dependency detected"
-                        (sut/sort-attrs #{{:name :a :deps [[:b]]}
-                                          {:name :b :deps [[:a]]}}))
+                        (world/sort-attrs #{{:name :a :deps [[:b]]}
+                                            {:name :b :deps [[:a]]}}))
       "detect circular dependencies")
 
   (is (thrown-with-msg? clojure.lang.ExceptionInfo #".*dependency on undefined attribute.*"
-                        (sut/sort-attrs #{{:name :a :deps [[:b]]}}))
+                        (world/sort-attrs #{{:name :a :deps [[:b]]}}))
       "detect dependencies on non-existing attributes"))
 
 (deftest test-get-entity
   (is (= {:foo/id 2 :foo/name "Fred"}
-         (sut/get-entity {:foo [{:foo/id 1} {:foo/id 2 :foo/name "Fred"}]}
-                         [:foo/id 2]))))
+         (world/get-entity {:foo [{:foo/id 1} {:foo/id 2 :foo/name "Fred"}]}
+                           [:foo/id 2]))))
 
 (deftest gen
   (let [attrs  #{{:name      :cat/id
                   :generator (gen/uuid)}
                  {:name      :cat/owner
                   :deps      [[:person/id]]
-                  :generator (sut/pick-ref)}
+                  :generator (world/pick-ref)}
                  {:name      :cat/name
                   :generator (fn [{[owner-name] :dep-vals}]
                                (str owner-name "'s cat"))
@@ -61,7 +61,7 @@
                   :generator (gen/uuid)}}
         dist   {:cat    4
                 :person 3}
-        result (sut/gen attrs dist)]
+        result (world/gen attrs dist)]
     (is (= 4 (-> result :cat count)))
     (is (= 3 (-> result :person count)))))
 
@@ -84,7 +84,7 @@
                     :generator (fn [{[name] :dep-vals}]
                                  (string/upper-case name))
                     :deps      [[:cat/name]]}}
-        world    (sut/gen attrs {:cat num-cats})
+        world    (world/gen attrs {:cat num-cats})
         cats     (:cat world)]
     (is (= num-cats (count cats)))
     (doseq [cat cats]
@@ -93,12 +93,21 @@
 (deftest lookup-path
   (let [barry {:cat/id     4
                :cat/name   "Barry"
-               :cat/friend [:cat/id 5]}
-        bobby {:cat/id   5
-               :cat/name "Bobby"}
-        world {:cat [barry bobby]}]
-    (is (= "Bobby" (sut/lookup-path {:world world :entity barry}
-                                    [:cat/friend :cat/name])))))
+               :cat/friend [:cat/id 5]
+               :cat/mother [:cat/id 1]}
+        bobby {:cat/id     5
+               :cat/name   "Bobby"
+               :cat/mother [:cat/id 1]}
+        mom   {:cat/id   1
+               :cat/name "Mom"}
+
+        world {:cat [barry bobby mom]}]
+    (testing "forward refs"
+      (is (= "Bobby" (world/lookup-path world barry [:cat/friend :cat/name])))
+      (is (= "Mom" (world/lookup-path world barry [:cat/mother :cat/name]))))
+    (testing "backrefs/joins"
+      (is (= #{"Barry" "Bobby"}
+             (set (world/lookup-path world mom [[:cat/mother :cat/id] :cat/name])))))))
 
 (deftest test-ref
   (let [attrs #{{:name      :cat/name
@@ -108,13 +117,13 @@
                 {:name      :cat/id
                  :generator (gen/uuid)}
                 {:name      :cat/owner
-                 :generator (sut/pick-ref)
+                 :generator (world/pick-ref)
                  :deps      [[:person/id]]}
                 {:name      :person/id
                  :generator (gen/uuid)}
                 {:name      :person/name
                  :generator (gen/one-of ["Fred"])}}
-        world (sut/gen attrs {:cat 1 :person 1})]
+        world (world/gen attrs {:cat 1 :person 1})]
     (is (= "Fred" (get-in world [:person 0 :person/name])))
     (is (= "Fred's cat" (get-in world [:cat 0 :cat/name])))))
 
@@ -126,14 +135,14 @@
                 {:name      :cat/id
                  :generator (gen/uuid)}
                 {:name      :cat/owner
-                 :generator (sut/pick-unique-ref)
+                 :generator (world/pick-unique-ref)
                  :deps      [[:person/id]]}
                 {:name      :person/id
                  :generator (gen/uuid)}
                 {:name        :person/name
                  :generator   (gen/one-of ["Fred" "Barney"])
                  :constraints [constraints/unique]}}
-        world (sut/gen attrs {:cat 2 :person 2})]
+        world (world/gen attrs {:cat 2 :person 2})]
     (is (= #{"Fred's cat" "Barney's cat"} (set (map :cat/name (:cat world)))))))
 
 (deftest test-unique-refs
@@ -143,7 +152,7 @@
                 {:name      :cat/id
                  :generator (gen/uuid)}
                 {:name      :owner/refs
-                 :generator (sut/pick-unique-refs)
+                 :generator (world/pick-unique-refs)
                  :deps      [[:cat/id] [:person/id]]}
                 ;; this is ugly but it works
                 {:name      :owner/cat
@@ -163,11 +172,44 @@
                 {:name        :person/name
                  :generator   (gen/one-of ["Fred" "Barney"])
                  :constraints [constraints/unique]}}
-        world (sut/gen attrs {:cat 2 :person 2 :owner 4})]
+        world (world/gen attrs {:cat 2 :person 2 :owner 4})]
     (is (= #{"Cat Cleo is owned by Barney"
              "Cat Cleo is owned by Fred"
              "Cat Tiger is owned by Barney"
              "Cat Tiger is owned by Fred"}
            (set (map :owner/description (:owner world)))))
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No unique refs to.*"
-                          (sut/gen attrs {:cat 2 :person 2 :owner 5})))))
+                          (world/gen attrs {:cat 2 :person 2 :owner 5})))))
+
+
+(deftest test-joins
+  (let [attrs #{{:name        :cat/name
+                 :generator   (gen/one-of ["Cleo" "Tiger"])
+                 :constraints [constraints/unique]}
+                {:name      :owner/refs
+                 :generator (world/pick-unique-refs)
+                 :deps      [[:cat/name] [:person/name]]}
+                ;; this is ugly but it works
+                {:name      :owner/cat
+                 :deps      [[:owner/refs]]
+                 :generator (fn [{[[cat-ref]] :dep-vals}] ; pick cat-ref out of vector
+                              cat-ref)}
+                {:name      :owner/person
+                 :deps      [[:owner/refs]]
+                 :generator (fn [{[[_ person-ref]] :dep-vals}] ; pick person-ref out of vector
+                              person-ref)}
+                {:name        :person/name
+                 :generator   (gen/one-of ["Fred" "Barney"])
+                 :constraints [constraints/unique]}
+                {:name      :person/cats
+                 :deps      [[:person/name] [[:owner/person :person/name] :owner/cat :cat/name]]
+                 :generator (fn [{[person-name cat-names] :dep-vals}]
+                              (str person-name " owns " (string/join " and " (sort cat-names))))}}
+        world (world/gen attrs {:cat 2 :person 2 :owner 4})
+        fred  (world/get-entity world [:person/name "Fred"])]
+    (is (= #{"Cleo" "Tiger"}
+           (set (world/lookup-path world fred
+                               [[:owner/person :person/name] :owner/cat :cat/name]))))
+    (is (= #{"Barney owns Cleo and Tiger"
+             "Fred owns Cleo and Tiger"}
+           (set (map :person/cats (:person world)))))))

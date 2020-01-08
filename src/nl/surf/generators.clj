@@ -68,6 +68,12 @@
   (fn [_]
     (apply gen/one-of coll)))
 
+(defn one-of-each
+  "Build a generator to pick one item from each collection in `colls`."
+  [colls]
+  (fn [_]
+    (map #(apply gen/one-of %) colls)))
+
 (defn weighted
   "Build a generator to pick one of weighted `m`.
 
