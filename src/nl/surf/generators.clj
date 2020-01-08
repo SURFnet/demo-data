@@ -4,7 +4,7 @@
             [clojure.data.generators :as gen]
             [clojure.java.io :as io]
             [clojure.string :as s]
-            [nl.surf.markov-chain :as mc]
+            [remworks.markov-chain :as mc]
             [yaml.core :as yaml]))
 
 (defn uuid
