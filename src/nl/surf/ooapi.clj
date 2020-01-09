@@ -164,7 +164,7 @@
 
     {:name      :course-programme/refs
      :deps      [[:course/id]  [:educational-programme/id]]
-     :generator (world/pick-unique-refs)}
+     :generator (world/pick-unique-refs [true false])}
     {:name      :course-programme/course
      :deps      [[:course-programme/refs]]
      :generator (fn [{[[course]] :dep-vals}]

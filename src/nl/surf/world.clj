@@ -14,8 +14,8 @@
   (and (ref? prop)
        (qualified-keyword? (second prop))))
 
-(let [flatten-dep (fn [dep]
-                    (mapcat #(if (vector? %) % [%]) dep))
+(let [flatten-dep  (fn [dep]
+                     (mapcat #(if (vector? %) % [%]) dep))
       flatten-deps (fn [attr] (assoc attr :flat-deps (set (mapcat flatten-dep (:deps attr)))))
       independent? (fn [attr] (-> attr :flat-deps empty?))
       dependent?   (complement independent?)
@@ -79,29 +79,6 @@
                          :ref-type ref-type})))
       [ref-type (apply data.generators/one-of free)])))
 
-(let [combinations (fn [world names]
-                     (apply combo/cartesian-product (map (fn [name]
-                                                           (mapv (fn [val]
-                                                                   [name val])
-                                                                 (values world name)))
-                                                         names)))]
-
-  (defn pick-unique-refs
-    "Select a combination of refs (from deps) that's unique for this attribute"
-    []
-    (fn [{:keys [world] {:keys [name deps]} :attr}]
-      (when-not (every? #(= 1 (count %)) deps)
-        (throw (ex-info (str "Need only direct dependencies to create references for " name)
-                        {:deps deps
-                         :name name})))
-      (let [ref-types (map first deps)
-            taken     (set (values world name))
-            free      (remove taken (combinations world ref-types))]
-        (when (empty? free)
-          (throw (ex-info (str "No unique refs to " (s/join ", " ref-types) " available for " name)
-                          {:name     name
-                           :ref-types ref-types})))
-        (apply data.generators/one-of free)))))
 
 (defn get-entities
   "Get all entities with the given attribute - value pair"
@@ -114,10 +91,56 @@
   [world ref]
   (first (get-entities world ref)))
 
+(let [combinations (fn [world names]
+                     (apply combo/cartesian-product (map (fn [name]
+                                                           (mapv (fn [val]
+                                                                   [name val])
+                                                                 (values world name)))
+                                                         names)))]
+  (defn pick-unique-refs
+    "Select a combination of refs (from deps) that's unique for this attribute"
+    ([]
+     (pick-unique-refs nil))
+    ([at-least-once]
+     {:pre [(or (nil? at-least-once)
+                (vector? at-least-once))]}
+     (fn [{:keys [world] {:keys [name deps]} :attr}]
+       (when-not (every? #(= 1 (count %)) deps)
+         (throw (ex-info (str "Need only direct dependencies to create references for " name)
+                         {:deps deps
+                          :name name})))
+       (let [ref-types  (map first deps)
+             taken      (set (values world name))
+             free       (remove taken (combinations world ref-types))
+             ;; combinations are preferred when none of their refs
+             ;; marked as `at-least-once` are already taken
+             ref-taken? (fn ref-taken? [i ref]
+                          (boolean (some #(= ref (nth % i)) taken)))
+             preferred? (fn preferred? [refs]
+                          (loop [[ref & refs]                     refs
+                                 [at-least-once? & at-least-once] at-least-once
+                                 i                                0]
+                            (cond
+                              (and at-least-once? (ref-taken? i ref))
+                              false
+
+                              (empty? refs)
+                              true
+
+                              :else
+                              (recur refs at-least-once (inc i)))))
+             preferred (when (some true? at-least-once)
+                         (filter preferred? free))]
+         (when (empty? free)
+           (throw (ex-info (str "No unique refs to " (s/join ", " ref-types) " available for " name)
+                           {:name      name
+                            :ref-types ref-types})))
+         (vec (apply data.generators/one-of (or (seq preferred) free))))))))
+
 (defn lookup-path
   "Recursively lookup a value from path starting from an entity."
   [world entity path]
-  (let [prop  (first path)]
+  (let [prop (first path)]
     (if (join? prop)
       (mapv #(lookup-path world % (next path))
             (get-entities world [(first prop) [(second prop) (or (get entity (second prop))

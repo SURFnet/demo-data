@@ -146,41 +146,57 @@
     (is (= #{"Fred's cat" "Barney's cat"} (set (map :cat/name (:cat world)))))))
 
 (deftest test-unique-refs
-  (let [attrs #{{:name        :cat/name
-                 :generator   (gen/one-of ["Cleo" "Tiger"])
-                 :constraints [constraints/unique]}
-                {:name      :cat/id
-                 :generator (gen/uuid)}
-                {:name      :owner/refs
-                 :generator (world/pick-unique-refs)
-                 :deps      [[:cat/id] [:person/id]]}
-                ;; this is ugly but it works
-                {:name      :owner/cat
-                 :deps      [[:owner/refs]]
-                 :generator (fn [{[[cat-ref]] :dep-vals}] ; pick cat-ref out of vector
-                              cat-ref)}
-                {:name      :owner/person
-                 :deps      [[:owner/refs]]
-                 :generator (fn [{[[_ person-ref]] :dep-vals}] ; pick person-ref out of vector
-                              person-ref)}
-                {:name      :owner/description
-                 :generator (fn [{[person-name cat-name] :dep-vals}]
-                              (str "Cat " cat-name " is owned by " person-name))
-                 :deps      [[:owner/person :person/name] [:owner/cat :cat/name]]}
-                {:name      :person/id
-                 :generator (gen/uuid)}
-                {:name        :person/name
-                 :generator   (gen/one-of ["Fred" "Barney"])
-                 :constraints [constraints/unique]}}
-        world (world/gen attrs {:cat 2 :person 2 :owner 4})]
-    (is (= #{"Cat Cleo is owned by Barney"
-             "Cat Cleo is owned by Fred"
-             "Cat Tiger is owned by Barney"
-             "Cat Tiger is owned by Fred"}
-           (set (map :owner/description (:owner world)))))
-    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No unique refs to.*"
-                          (world/gen attrs {:cat 2 :person 2 :owner 5})))))
-
+  (testing "Basic unique refs"
+    (let [attrs #{{:name        :cat/name
+                   :generator   (gen/one-of ["Cleo" "Tiger"])
+                   :constraints [constraints/unique]}
+                  {:name      :cat/id
+                   :generator (gen/uuid)}
+                  {:name      :owner/refs
+                   :generator (world/pick-unique-refs)
+                   :deps      [[:cat/id] [:person/id]]}
+                  ;; this is ugly but it works
+                  {:name      :owner/cat
+                   :deps      [[:owner/refs]]
+                   :generator (fn [{[[cat-ref]] :dep-vals}] ; pick cat-ref out of vector
+                                cat-ref)}
+                  {:name      :owner/person
+                   :deps      [[:owner/refs]]
+                   :generator (fn [{[[_ person-ref]] :dep-vals}] ; pick person-ref out of vector
+                                person-ref)}
+                  {:name      :owner/description
+                   :generator (fn [{[person-name cat-name] :dep-vals}]
+                                (str "Cat " cat-name " is owned by " person-name))
+                   :deps      [[:owner/person :person/name] [:owner/cat :cat/name]]}
+                  {:name      :person/id
+                   :generator (gen/uuid)}
+                  {:name        :person/name
+                   :generator   (gen/one-of ["Fred" "Barney"])
+                   :constraints [constraints/unique]}}
+          world (world/gen attrs {:cat 2 :person 2 :owner 4})]
+      (is (= #{"Cat Cleo is owned by Barney"
+               "Cat Cleo is owned by Fred"
+               "Cat Tiger is owned by Barney"
+               "Cat Tiger is owned by Fred"}
+             (set (map :owner/description (:owner world)))))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No unique refs to.*"
+                            (world/gen attrs {:cat 2 :person 2 :owner 5})))))
+  (testing "with at-least-once"
+    (dotimes [_ 10]
+      (let [attrs #{{:name        :cat/name
+                     :generator   (gen/one-of ["Cleo" "Tiger" "Lion" "Ginger"])
+                     :constraints [constraints/unique]}
+                    {:name      :owner/refs
+                     :generator (world/pick-unique-refs [true false])
+                     :deps      [[:cat/name] [:person/name]]}
+                    {:name        :person/name
+                     :generator   (gen/one-of ["Fred" "Barney" "Wilma" "Rubble" "Dino" "Robot"])
+                     :constraints [constraints/unique]}}
+            world (world/gen attrs {:cat 4 :person 6 :owner 4})]
+        (is (= #{"Cleo" "Tiger" "Lion" "Ginger"}
+               (set (map #(get-in % [:owner/refs 0 1]) (:owner world)))))
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No unique refs to.*"
+                              (world/gen attrs {:cat 2 :person 2 :owner 5})))))))
 
 (deftest test-joins
   (let [attrs #{{:name        :cat/name
@@ -209,7 +225,7 @@
         fred  (world/get-entity world [:person/name "Fred"])]
     (is (= #{"Cleo" "Tiger"}
            (set (world/lookup-path world fred
-                               [[:owner/person :person/name] :owner/cat :cat/name]))))
+                                   [[:owner/person :person/name] :owner/cat :cat/name]))))
     (is (= #{"Barney owns Cleo and Tiger"
              "Fred owns Cleo and Tiger"}
            (set (map :person/cats (:person world)))))))
