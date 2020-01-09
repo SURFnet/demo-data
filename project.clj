@@ -6,6 +6,7 @@
                  [org.clojure/math.combinatorics "0.1.6"]
                  [org.flatland/ordered "1.5.7"] ; compatible with JDK 11
                  [ring/ring-jetty-adapter "1.7.1"]
+                 [ring/ring-json "0.5.0"]
                  [hiccup "1.0.5"]
                  [io.forward/yaml "1.0.9" :exclusions [org.flatland/ordered]]
                  [markov-chain "0.1.0"]]

@@ -6,7 +6,8 @@
             [clojure.data.generators :as dgen]
             [hiccup.core :as hiccup]
             [ring.middleware.params :refer [wrap-params]]
-            [ring.adapter.jetty :refer [run-jetty]]))
+            [ring.adapter.jetty :refer [run-jetty]]
+            [ring.middleware.json :refer [wrap-json-response]]))
 
 (def data
   (binding [dgen/*rnd* (java.util.Random. 42)]
@@ -43,13 +44,19 @@
    (for [v data]
      [:li (render v)])])
 
+(defn htmlify-link
+  [url]
+  (str url
+       (if (re-find #"\?" url) \& \?)
+       "html=1"))
+
 (defn render-map [data]
   [:dl
    (for [[k v] data]
      [:div
       [:dt (pr-str k)]
       [:dd (if (= :href k)
-             [:a {:href v} v]
+             [:a {:href (htmlify-link v)} v]
              (render v))]])])
 
 (defn render-html [data]
@@ -77,7 +84,18 @@
                                 params)
         data            (->> (get data root) (filter filter-fn))]
     {:status 200
-     :body   (render-html data)}))
+     :body   data}))
+
+(defn wrap-html-response
+  "Middleware rendering response body as HTML if requested in the"
+  [f]
+  (fn [{:keys [params] :as request}]
+    (if (get params "html")
+      (-> request
+          (update :params dissoc "html")
+          (f)
+          (update :body render-html))
+      (f request))))
 
 (defonce server-atom (atom nil))
 
@@ -91,7 +109,10 @@
   (let [host (get (System/getenv) "HOST")
         port (Integer/parseInt (get (System/getenv) "PORT" "8080"))]
     (reset! server-atom
-            (run-jetty (wrap-params #'app)
+            (run-jetty (-> #'app
+                           wrap-html-response
+                           wrap-json-response
+                           wrap-params)
                        {:host host, :port port, :join? false}))))
 
 (defn -main [& _]
