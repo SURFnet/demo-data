@@ -143,11 +143,13 @@
   (let [prop (first path)]
     (if (join? prop)
       (mapv #(lookup-path world % (next path))
-            (get-entities world [(first prop) [(second prop) (or (get entity (second prop))
-                                                                 (throw (ex-info (str "Cannot join on nil value for " (second prop))
-                                                                                 {:entity entity
-                                                                                  :join   prop
-                                                                                  :path   path})))]]))
+            (get-entities world [(first prop)
+                                 [(second prop)
+                                  (or (get entity (second prop))
+                                      (throw (ex-info (str "Cannot join on nil value for " (second prop))
+                                                      {:entity entity
+                                                       :join   prop
+                                                       :path   path})))]]))
       (let [value (get entity prop)]
         (if-let [path (next path)]
           (recur world (get-entity world value) path)
@@ -243,4 +245,6 @@
                       dist)]
     (->> attrs
          sort-attrs
-         (populate world))))
+         (populate world)
+         ;; TODO remove hidden attrs
+         )))
