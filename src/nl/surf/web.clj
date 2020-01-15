@@ -32,7 +32,7 @@
                                         (fn [course]
                                           (some #(= (str "/educational-programmes/" programme-id)
                                                     (:href %))
-                                                (get-in course [:links :educationalProgrammes]))))}})
+                                                (get-in course [:_links :educationalProgrammes]))))}})
 
 (declare render-map)
 (declare render-coll)
