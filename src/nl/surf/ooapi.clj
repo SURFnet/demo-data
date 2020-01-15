@@ -417,32 +417,32 @@
                               :singleton? true
                               :attributes {:service/institution {:hidden? true}}
                               :pre        (fn [e _]
-                                            (assoc e :links {:_self {:href "/"}
-                                                             :endpoints [{:href "/institution"}
-                                                                         {:href "/educational-programmes"}
-                                                                         {:href "/course-offerings"}
-                                                                         {:href "/persons"}
-                                                                         {:href "/courses"}]}))}
+                                            (assoc e :_links {:self      {:href "/"}
+                                                              :endpoints [{:href "/institution"}
+                                                                          {:href "/educational-programmes"}
+                                                                          {:href "/course-offerings"}
+                                                                          {:href "/persons"}
+                                                                          {:href "/courses"}]}))}
    "/institution"            {:type       :institution
                               :singleton? true
                               :attributes {:institution/address-city {:hidden? true}}
                               :pre        (fn [e _]
-                                            (assoc e :links {:_self {:href "/institution"}
-                                                             :educational-programmes {:href "/educational-programmes"}}))}
+                                            (assoc e :_links {:self                   {:href "/institution"}
+                                                              :educational-programmes {:href "/educational-programmes"}}))}
    "/educational-programmes" {:type :educational-programme
                               :pre  (fn [{:educational-programme/keys [id] :as e} _]
-                                      (assoc e :links {:_self {:href (str "/educational-programmes/" id)}
-                                                       :courses {:href (str "/courses?educationalProgramme=" id)}}))}
+                                      (assoc e :_links {:self    {:href (str "/educational-programmes/" id)}
+                                                        :courses {:href (str "/courses?educationalProgramme=" id)}}))}
    "/course-offerings"       {:type       :course-offering
                               :attributes {:course-offering/course {:follow-ref? true
                                                                     :attributes  {:course/educationalProgramme {:hidden? true}}}}
                               :pre        (fn [{:course-offering/keys [id] :as e} world]
-                                            (assoc e :links {:_self     {:href (str "/course-offerings/" id)}
-                                                             :lecturers (mapv person-link
-                                                                              (lecturers-for-offering world id))}))}
+                                            (assoc e :_links {:self      {:href (str "/course-offerings/" id)}
+                                                              :lecturers (mapv person-link
+                                                                               (lecturers-for-offering world id))}))}
    "/persons"                {:type :person
                               :pre  (fn [{:person/keys [id] :as e} _]
-                                      (assoc e :links {:_self {:href (str "/persons/" id)}}
+                                      (assoc e :_links {:self {:href (str "/persons/" id)}}
                                         ; link to courses not
                                         ; implemented because that
                                         ; only supports students
@@ -450,13 +450,13 @@
    "/courses"                {:type       :course
                               :attributes {:course/coordinator {:hidden? true}}
                               :pre        (fn [{:course/keys [id coordinator] :as e} world]
-                                            (assoc e :links {:_self                 {:href (str "/courses/" id)}
-                                                             :coordinator           (person-link (world/get-entity world coordinator))
-                                                             :lecturers             (map person-link (lecturers-for-course world id))
-                                                             :courseOfferings       {:href (str "/course-offerings?course=" id)}
-                                                             :educationalProgrammes (map (fn [programme]
-                                                                                           {:href (str "/educational-programmes/" (:educational-programme/id programme))})
-                                                                                         (programmes-for-course world id))}))}})
+                                            (assoc e :_links {:self                  {:href (str "/courses/" id)}
+                                                              :coordinator           (person-link (world/get-entity world coordinator))
+                                                              :lecturers             (map person-link (lecturers-for-course world id))
+                                                              :courseOfferings       {:href (str "/course-offerings?course=" id)}
+                                                              :educationalProgrammes (map (fn [programme]
+                                                                                            {:href (str "/educational-programmes/" (:educational-programme/id programme))})
+                                                                                          (programmes-for-course world id))}))}})
 
 
 ;;(world/gen attributes {:service 1 :institution 1, :educational-programme 3, :course-programme 20 :course 15, :lecturer 30, :course-offering 30 :person 30})

@@ -1,13 +1,19 @@
 (ns nl.surf.web
-  (:require [nl.surf.ooapi :as ooapi]
-            [nl.surf.export :as export]
-            [nl.surf.world :as world]
+  (:require [clojure.data.generators :as dgen]
+            [clojure.java.io :as io]
             [clojure.string :as s]
-            [clojure.data.generators :as dgen]
+            [clojure.tools.logging :as log]
             [hiccup.core :as hiccup]
-            [ring.middleware.params :refer [wrap-params]]
+            [nl.surf.export :as export]
+            [nl.surf.ooapi :as ooapi]
+            [nl.surf.world :as world]
+            [nl.zeekat.ring-openapi-validator :as validator]
             [ring.adapter.jetty :refer [run-jetty]]
-            [ring.middleware.json :refer [wrap-json-response]]))
+            [ring.middleware.json :refer [wrap-json-response]]
+            [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.resource :refer [wrap-resource]]
+            [ring.middleware.stacktrace :refer [wrap-stacktrace]]
+            [ring.util.response :as response]))
 
 (def data
   (binding [dgen/*rnd* (java.util.Random. 42)]
@@ -38,7 +44,6 @@
 
     :else
     (pr-str v)))
-
 (defn render-coll [data]
   [:ul
    (for [v data]
@@ -73,18 +78,23 @@
   (let [[_ root member] (re-find #"^(/.*?)(/.*)?$" uri)
         member          (when member (s/replace member #"^/" ""))
         filter-fn       (reduce (fn [m [k v]]
-                                  (if-let [query (get-in queries [root k])]
-                                    (query v)
-                                    (let [k (keyword (str k "Id"))
-                                          v (str v)]
-                                      #(and (m %) (= v (str (get % k)))))))
+                                  (if (seq v)
+                                    (if-let [query (get-in queries [root k])]
+                                      (query v)
+                                      (let [k (keyword (str k "Id"))
+                                            v (str v)]
+                                        #(and (m %) (= v (str (get % k))))))
+                                    identity))
                                 (if member
                                   #(= (str (:id %)) member)
                                   identity)
                                 params)
-        data            (->> (get data root) (filter filter-fn))]
+        body            (get data root)
+        body            (if (sequential? body)
+                          (filter filter-fn body)
+                          body)]
     {:status 200
-     :body   data}))
+     :body   body}))
 
 (defn wrap-html-response
   "Middleware rendering response body as HTML if requested in the"
@@ -94,8 +104,21 @@
       (-> request
           (update :params dissoc "html")
           (f)
-          (update :body render-html))
-      (f request))))
+          (update :body render-html)
+          (response/content-type "text/html; charset=utf-8"))
+      (-> request
+          f
+          ;; hal+json is required for ooapi
+          (response/content-type "application/hal+json; charset=utf-8")))))
+
+(defn wrap-validator
+  [f validator]
+  (fn [{:keys [params] :as request}]
+    (let [response (f request)]
+      (doseq [{:keys [level] :as m} (validator/validate-interaction validator (dissoc request :body) response)]
+        (when-not (= :ignore level)
+          (log/log level (prn-str m))))
+      response)))
 
 (defonce server-atom (atom nil))
 
@@ -112,8 +135,16 @@
             (run-jetty (-> #'app
                            wrap-html-response
                            wrap-json-response
+                           (wrap-validator (validator/openapi-validator "/public/ooapi.json" {:base-path (str "http://" host ":" port "/")}))
+                           (wrap-stacktrace)
+                           (wrap-resource "/public")
                            wrap-params)
                        {:host host, :port port, :join? false}))))
 
 (defn -main [& _]
+  (start!))
+
+(defn restart!
+  []
+  (stop!)
   (start!))
