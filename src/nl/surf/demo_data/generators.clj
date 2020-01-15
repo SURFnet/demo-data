@@ -99,6 +99,15 @@
     (let [args (map (fn [gen] (gen world)) arg-gens)]
       (apply core/format fmt args))))
 
+(defn object
+  "Build a generator that returns a map"
+  [m]
+  (fn [world]
+    (reduce-kv (fn [o k gen]
+                 (assoc o k (gen world)))
+               {}
+               m)))
+
 (defn text
   [corpus & {:keys [lines lookback] :or {lines 3, lookback 2}}]
   (let [state-space (mc/analyse-text corpus)]

@@ -13,4 +13,11 @@
            ((sut/format "%s and %s %s"
                         (sut/one-of ["Fred"])
                         (sut/one-of ["Wilma"])
-                        (sut/one-of ["Flintstone"])) {})))))
+                        (sut/one-of ["Flintstone"])) {}))))
+  (testing "object"
+    (is (= {:a "A"
+            :b "B"
+            :c "C"}
+           ((sut/object {:a (sut/one-of ["A"])
+                         :b (sut/one-of ["B"])
+                         :c (sut/one-of ["C"])}) {})))))
