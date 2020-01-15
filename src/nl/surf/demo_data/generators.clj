@@ -109,15 +109,21 @@
 
 ;;;; Helpers
 
+(defn- checked-resource
+  [name]
+  (or (io/resource name)
+      (throw (ex-info (str "Resource not found: `" name "`")
+                      {:name name}))))
+
 (defn resource
   "Return the full text from the named resource `n`."
   [n]
-  (-> n io/resource slurp))
+  (-> n checked-resource slurp))
 
 (defn lines-resource
   "Returns a collection by reading named resource `n` and spliting lines."
   [n]
-  (-> n io/resource io/reader line-seq))
+  (-> n checked-resource io/reader line-seq))
 
 (defn yaml-resource
   "Returns YAML data from resource `n`."
