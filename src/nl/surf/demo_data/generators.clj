@@ -1,4 +1,4 @@
-(ns nl.surf.generators
+(ns nl.surf.demo-data.generators
   (:refer-clojure :exclude [char int format])
   (:require [clojure.core :as core]
             [clojure.data.generators :as gen]

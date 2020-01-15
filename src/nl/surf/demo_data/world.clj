@@ -1,4 +1,4 @@
-(ns nl.surf.world
+(ns nl.surf.demo-data.world
   (:require [clojure.data.generators :as data.generators]
             [clojure.math.combinatorics :as combo]
             [clojure.string :as s]))

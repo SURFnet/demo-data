@@ -1,4 +1,4 @@
-(ns nl.surf.constraints)
+(ns nl.surf.demo-data.constraints)
 
 (defn unique
   "Constraint to check that generated values don't already occur in

@@ -1,4 +1,4 @@
-(ns nl.surf.date-util
+(ns nl.surf.demo-data.date-util
   (:refer-clojure :exclude [get])
   (:import java.text.SimpleDateFormat
            java.util.Calendar))

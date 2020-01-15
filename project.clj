@@ -1,4 +1,4 @@
-(defproject nl.surf/prop "0.1.0-SNAPSHOT"
+(defproject nl.surf/demo-data "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :dependencies [[hiccup "1.0.5"]
@@ -15,5 +15,5 @@
                  [ring/ring-jetty-adapter "1.8.0"]
                  [ring/ring-json "0.5.0"]
                  [ring/ring-devel "1.8.0"]]
-  :repl-options {:init-ns nl.surf.prop}
+  :repl-options {:init-ns nl.surf.demo-data.world}
   :resource-paths ["resources" "generated"])

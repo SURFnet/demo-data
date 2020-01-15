@@ -1,9 +1,9 @@
-(ns nl.surf.world-test
+(ns nl.surf.demo-data.world-test
   (:require [clojure.test :refer [are deftest is testing]]
             [clojure.string :as string]
-            [nl.surf.generators :as gen]
-            [nl.surf.world :as world]
-            [nl.surf.constraints :as constraints]))
+            [nl.surf.demo-data.generators :as gen]
+            [nl.surf.demo-data.world :as world]
+            [nl.surf.demo-data.constraints :as constraints]))
 
 (deftest sort-attrs
   (are [res attrs] (= res (world/sort-attrs attrs))
@@ -66,10 +66,10 @@
     (is (= 3 (-> result :person count)))))
 
 (deftest test-compose-constraints
-  (let [constraint (#'nl.surf.world/compose-constraints [(fn [_ v]
-                                                           (pos? v))
-                                                         (fn [_ v]
-                                                           (even? v))])]
+  (let [constraint (#'nl.surf.demo-data.world/compose-constraints [(fn [_ v]
+                                                                     (pos? v))
+                                                                   (fn [_ v]
+                                                                     (even? v))])]
     (are [b v] (= b (constraint {} v))
       false 33
       true  34

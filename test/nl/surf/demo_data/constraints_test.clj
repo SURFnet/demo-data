@@ -1,8 +1,8 @@
-(ns nl.surf.constraints-test
+(ns nl.surf.demo-data.constraints-test
   (:require  [clojure.test :refer [deftest is testing]]
-             [nl.surf.world :as world]
-             [nl.surf.generators :as generators]
-             [nl.surf.constraints :as constraints]))
+             [nl.surf.demo-data.world :as world]
+             [nl.surf.demo-data.generators :as generators]
+             [nl.surf.demo-data.constraints :as constraints]))
 
 (deftest test-constraints
   (testing "unique-constraint"

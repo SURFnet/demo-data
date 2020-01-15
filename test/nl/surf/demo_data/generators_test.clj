@@ -1,6 +1,6 @@
-(ns nl.surf.generators-test
+(ns nl.surf.demo-data.generators-test
   (:require [clojure.test :refer [deftest is testing]]
-            [nl.surf.generators :as sut]))
+            [nl.surf.demo-data.generators :as sut]))
 
 (deftest generators
   (testing "int"

@@ -1,6 +1,6 @@
-(ns nl.surf.export
-  (:require [nl.surf.date-util :as date-util]
-            [nl.surf.world :as world])
+(ns nl.surf.demo-data.export
+  (:require [nl.surf.demo-data.date-util :as date-util]
+            [nl.surf.demo-data.world :as world])
   (:import java.util.Calendar))
 
 (defn export-key
