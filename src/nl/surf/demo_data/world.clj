@@ -198,17 +198,18 @@
 
 (defn- gen-attr
   "Generate a attribute for `entity`."
-  [world entity {:keys [deps generator constraints name] :as attr}]
+  [world entity {:keys [deps generator constraints name optional] :as attr}]
   (let [generator (or generator (copying-generator attr))
         generator (if (seq constraints)
                     (constrain generator constraints)
-                    generator)]
-    (assoc entity
-           name
-           (generator {:entity   entity
-                       :attr     attr
-                       :world    world
-                       :dep-vals (map (partial lookup-path world entity) deps)}))))
+                    generator)
+        value     (generator {:entity   entity
+                              :attr     attr
+                              :world    world
+                              :dep-vals (map (partial lookup-path world entity) deps)})]
+    (if (and optional (nil? value))
+      entity
+      (assoc entity name value))))
 
 (defn- gen-attrs
   "Generate all properties for `attr`"

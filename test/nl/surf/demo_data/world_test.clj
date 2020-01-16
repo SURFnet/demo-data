@@ -43,6 +43,20 @@
          (world/get-entity {:foo [{:foo/id 1} {:foo/id 2 :foo/name "Fred"}]}
                            [:foo/id 2]))))
 
+(deftest test-optional-attrs
+  (let [attrs #{{:name      :attr/default-required
+                 :generator (constantly nil)}
+                {:name      :attr/optional
+                 :generator (constantly nil)
+                 :optional  true}
+                {:name      :attr/required
+                 :generator (constantly nil)
+                 :optional  false}}
+        world (world/gen attrs {:attr 1})]
+    (is (= {:attr [{:attr/default-required nil
+                    :attr/required         nil}]}
+           world))))
+
 (deftest gen
   (let [attrs  #{{:name      :cat/id
                   :generator (gen/uuid)}
