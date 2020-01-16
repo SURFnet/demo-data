@@ -7,9 +7,16 @@
             [nl.surf.demo-data.world :as world]
             [remworks.markov-chain :as mc]))
 
-(defmulti load-generator :name)
+(defmulti load-generator
+  "Load generator function for given spec.  Spec has a `:name` (used for
+  dispatch) and `:arguments`.  The later can be used to prepare a generator
+  function for action.  The returned function accepts a `world` argument,
+  supplied arguments and dependency values."
+  :name)
 
-(defmulti load-constraint identity)
+(defmulti load-constraint
+  "Load constraint function for given name."
+  identity)
 
 (defn- keywordize [x]
   (cond
@@ -20,7 +27,7 @@
     (mapv keywordize x)
 
     :else
-    (throw (ex-info "TODO" {:x x}))))
+    (throw (ex-info "Unexpected dependency value" {:value x}))))
 
 (defn- vectorize [x]
   (if (vector? x) x [x]))
@@ -43,10 +50,11 @@
                       (let [args (concat args dep-vals)]
                         (try
                           (apply g world args)
-                          (catch Throwable ex ;; FIXME catching throwable?!
+                          (catch Exception ex
                             (throw (ex-info (str ex) {:attribute attr-name
-                                                      :spec      spec
-                                                      :arguments args}))))))
+                                                      :generator spec
+                                                      :arguments (into [world] args)
+                                                      :cause     ex}))))))
                     spec))
 
                 (contains? attr :value)
@@ -74,7 +82,6 @@
                    :deps      [[refs-name]]
                    :generator (with-meta
                                 (fn ref-attr [{[refs] :dep-vals}]
-                                  (prn refs)
                                   (nth refs i))
                                 {:name (str (name ref-name) "/" attr-name)})})
                 attributes
@@ -115,49 +122,68 @@
 (defmethod load-generator "int" [_]
   (fn int
     ([world] ((gen/int) world))
-    ([world lo hi] ((gen/int lo hi) world))))
+    ([world lo hi]
+     (when-not (< lo hi) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
+     ((gen/int lo hi) world))))
 
 (defmethod load-generator "bigdec-cubic" [_]
-  (fn bigdec-cubic [world lo hi] ((gen/bigdec-cubic lo hi) world)))
+  (fn bigdec-cubic [world lo hi]
+    (when-not (< lo hi) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
+    ((gen/bigdec-cubic lo hi) world)))
 
 (defmethod load-generator "int-cubic" [_]
-  (fn int-cubic [world lo hi] ((gen/int-cubic lo hi) world)))
+  (fn int-cubic [world lo hi]
+    (when-not (< lo hi) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
+    ((gen/int-cubic lo hi) world)))
 
 (defmethod load-generator "int-log" [_]
-  (fn int-log [world lo hi] ((gen/int-log lo hi) world)))
+  (fn int-log [world lo hi]
+    (when-not (< lo hi) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
+    ((gen/int-log lo hi) world)))
 
 (defmethod load-generator "char" [_]
   (fn char
     ([world] ((gen/char) world))
-    ([world lo hi] ((gen/char (first lo) (first hi)) world))))
+    ([world lo hi]
+     (let [lo (first lo)
+           hi (first hi)]
+       (when-not (< (int lo) (int hi)) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
+       ((gen/char lo hi) world)))))
 
 (defmethod load-generator "one-of" [_]
-  (fn one-of [world x] ((gen/one-of x) world)))
+  (fn one-of [world x]
+    (when (seq x) ((gen/one-of x) world))))
 
 (defmethod load-generator "one-of-resource-lines" [{[resource] :arguments}]
   (if resource
     (let [lines (gen/lines-resource resource)]
       (fn one-of-resource-lines-aot [world _]
-        ((gen/one-of lines) world)))
+        (when (seq lines) ((gen/one-of lines) world))))
     (fn one-of-resource-lines [world resource]
-      ((gen/one-of gen/lines-resource resource) world))))
+      (when-let [lines (seq (gen/lines-resource resource))]
+        ((gen/one-of lines) world)))))
 
 (defmethod load-generator "one-of-keyed-resource" [{[resource] :arguments}]
   (if resource
     (let [m (gen/yaml-resource resource)]
       (fn one-of-keyed-resource-aot [world _ k]
-        ((gen/one-of (get m k)) world)))
+        (when-let [x (seq (get m k))]
+          ((gen/one-of x) world))))
     (fn one-of-keyed-resource [world resource k]
-      ((gen/one-of (get (gen/yaml-resource resource) k)) world))))
+      (when-let [x (seq (get (gen/yaml-resource resource) k))]
+        ((gen/one-of x) world)))))
 
 (defmethod load-generator "weighted" [_]
-  (fn weighted [world x] ((gen/weighted x) world)))
+  (fn weighted [world x]
+    (when (seq x) ((gen/weighted x) world))))
 
 (defmethod load-generator "weighted-set" [_]
-  (fn weighted-set [world x] ((gen/weighted-set x) world)))
+  (fn weighted-set [world x]
+    (when (seq x) ((gen/weighted-set x) world))))
 
 (defmethod load-generator "format" [_]
-  (fn format [world & args] (apply clojure.core/format args)))
+  (fn format [world fmt & args]
+    (apply clojure.core/format fmt args)))
 
 (defmethod load-generator "text-from-resource" [{[resource] :arguments}]
   (if resource
