@@ -19,11 +19,11 @@
 
 (defn parse-date
   [^String s]
-  (doto (java.util.Calendar/getInstance)
+  (doto (Calendar/getInstance)
     (.setTime (.parse (SimpleDateFormat. "yyyy-MM-dd") s))))
 
 (defn calendar-field-from-string [name]
-  (.get (.getDeclaredField java.util.Calendar (s/upper-case name)) nil))
+  (.get (.getDeclaredField Calendar (s/upper-case name)) nil))
 
 (defn nth-weekday-of
   "Return `java.util.Calendar` instance of the `n`-th (starting at `0`)
