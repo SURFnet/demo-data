@@ -18,13 +18,13 @@
   "Load constraint function for given name."
   identity)
 
-(defn- keywordize [x]
+(defn- keywordize-deps [x]
   (cond
     (string? x)
     (apply keyword (s/split x #"/"))
 
     (sequential? x)
-    (mapv keywordize x)
+    (mapv keywordize-deps x)
 
     :else
     (throw (ex-info "Unexpected dependency value" {:value x}))))
@@ -33,7 +33,7 @@
   (if (vector? x) x [x]))
 
 (defn- load-dep [dep]
-  (mapv keywordize (vectorize dep)))
+  (mapv keywordize-deps (vectorize dep)))
 
 (defn- load-attr
   [type [attr-name {:keys [hidden deps value constraints]
