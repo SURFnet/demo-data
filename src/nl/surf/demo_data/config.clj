@@ -7,14 +7,14 @@
             [nl.surf.demo-data.world :as world]
             [remworks.markov-chain :as mc]))
 
-(defmulti load-generator
+(defmulti generator
   "Load generator function for given spec.  Spec has a `:name` (used for
   dispatch) and `:arguments`.  The later can be used to prepare a generator
   function for action.  The returned function accepts a `world` argument,
   supplied arguments and dependency values."
   :name)
 
-(defmulti load-constraint
+(defmulti constraint
   "Load constraint function for given name."
   identity)
 
@@ -36,15 +36,17 @@
   (mapv keywordize (vectorize dep)))
 
 (defn- load-attr
-  [type [attr-name {:keys [hidden deps value generator constraints] :as attr}]]
+  [type [attr-name {:keys [hidden deps value constraints]
+                    gnrtr :generator
+                    :as attr}]]
   {:name      (keyword type (name attr-name))
    :hidden    hidden
    :deps      (mapv load-dep deps)
    :generator (cond
-                generator
-                (let [[name & args] (vectorize generator)
+                gnrtr
+                (let [[name & args] (vectorize gnrtr)
                       spec          {:name name, :arguments args}
-                      g             (load-generator spec)]
+                      g             (generator spec)]
                   (with-meta
                     (fn [{:keys [dep-vals] :as world}]
                       (let [args (concat args dep-vals)]
@@ -61,7 +63,7 @@
                 (with-meta
                   (constantly value)
                   {:value value}))
-   :constraints (map load-constraint constraints)})
+   :constraints (map constraint constraints)})
 
 (defn- load-unique-refs
   [type [ref-name {:keys [deps attributes unique] :as ref}]]
@@ -112,36 +114,36 @@
 
 ;;;;;;;;;;;;;;;;;;;;
 
-(defmethod load-generator "constantly" [_]
+(defmethod generator "constantly" [_]
   (fn constantly [_ x] x))
 
-(defmethod load-generator "uuid" [_] (gen/uuid))
+(defmethod generator "uuid" [_] (gen/uuid))
 
-(defmethod load-generator "string" [_] (gen/string))
+(defmethod generator "string" [_] (gen/string))
 
-(defmethod load-generator "int" [_]
+(defmethod generator "int" [_]
   (fn int
     ([world] ((gen/int) world))
     ([world lo hi]
      (when-not (< lo hi) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
      ((gen/int lo hi) world))))
 
-(defmethod load-generator "bigdec-cubic" [_]
+(defmethod generator "bigdec-cubic" [_]
   (fn bigdec-cubic [world lo hi]
     (when-not (< lo hi) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
     ((gen/bigdec-cubic lo hi) world)))
 
-(defmethod load-generator "int-cubic" [_]
+(defmethod generator "int-cubic" [_]
   (fn int-cubic [world lo hi]
     (when-not (< lo hi) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
     ((gen/int-cubic lo hi) world)))
 
-(defmethod load-generator "int-log" [_]
+(defmethod generator "int-log" [_]
   (fn int-log [world lo hi]
     (when-not (< lo hi) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
     ((gen/int-log lo hi) world)))
 
-(defmethod load-generator "char" [_]
+(defmethod generator "char" [_]
   (fn char
     ([world] ((gen/char) world))
     ([world lo hi]
@@ -150,11 +152,11 @@
        (when-not (< (int lo) (int hi)) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
        ((gen/char lo hi) world)))))
 
-(defmethod load-generator "one-of" [_]
+(defmethod generator "one-of" [_]
   (fn one-of [world x]
     (when (seq x) ((gen/one-of x) world))))
 
-(defmethod load-generator "one-of-resource-lines" [{[resource] :arguments}]
+(defmethod generator "one-of-resource-lines" [{[resource] :arguments}]
   (if resource
     (let [lines (gen/lines-resource resource)]
       (fn one-of-resource-lines-aot [world _]
@@ -163,7 +165,7 @@
       (when-let [lines (seq (gen/lines-resource resource))]
         ((gen/one-of lines) world)))))
 
-(defmethod load-generator "one-of-keyed-resource" [{[resource] :arguments}]
+(defmethod generator "one-of-keyed-resource" [{[resource] :arguments}]
   (if resource
     (let [m (gen/yaml-resource resource)]
       (fn one-of-keyed-resource-aot [world _ k]
@@ -173,19 +175,19 @@
       (when-let [x (seq (get (gen/yaml-resource resource) k))]
         ((gen/one-of x) world)))))
 
-(defmethod load-generator "weighted" [_]
+(defmethod generator "weighted" [_]
   (fn weighted [world x]
     (when (seq x) ((gen/weighted x) world))))
 
-(defmethod load-generator "weighted-set" [_]
+(defmethod generator "weighted-set" [_]
   (fn weighted-set [world x]
     (when (seq x) ((gen/weighted-set x) world))))
 
-(defmethod load-generator "format" [_]
+(defmethod generator "format" [_]
   (fn format [world fmt & args]
     (apply clojure.core/format fmt args)))
 
-(defmethod load-generator "text-from-resource" [{[resource] :arguments}]
+(defmethod generator "text-from-resource" [{[resource] :arguments}]
   (if resource
     (let [state-space (mc/analyse-text (gen/resource resource))]
       (fn text-from-resource-aot [_ _]
@@ -194,22 +196,22 @@
       (let [state-space (mc/analyse-text (gen/resource resource))]
         (mc/generate-text state-space)))))
 
-(defmethod load-generator "lorum-ipsum" [_]
+(defmethod generator "lorum-ipsum" [_]
   (let [state-space (mc/analyse-text (gen/resource "nl/surf/demo_data/lorum-ipsum.txt"))]
     (fn lorum-ipsum [_] (mc/generate-text state-space))))
 
-(defmethod load-generator "inc" [_]
+(defmethod generator "inc" [_]
   (fn inc [_ v] (clojure.core/inc v)))
 
-(defmethod load-generator "first-weekday-of" [_]
+(defmethod generator "first-weekday-of" [_]
   (fn first-weekday-of [_ weekday month year]
     (date-util/nth-weekday-of 0 weekday year month)))
 
-(defmethod load-generator "last-day-of" [_]
+(defmethod generator "last-day-of" [_]
  (fn last-day-of [_ month year]
    (date-util/last-day-of year month)))
 
-(defmethod load-generator "abbreviate" [_]
+(defmethod generator "abbreviate" [_]
   (fn abbreviate [_ x]
     (->> (s/split x #"[^a-zA-Z]")
          (map first)
@@ -219,4 +221,4 @@
 
 ;;;;;;;;;;;;;;;;;;;;
 
-(defmethod load-constraint "unique" [_] constraints/unique)
+(defmethod constraint "unique" [_] constraints/unique)
