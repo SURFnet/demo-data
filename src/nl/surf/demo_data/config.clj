@@ -42,7 +42,7 @@
                     (fn [{:keys [dep-vals] :as world}]
                       (let [args (concat args dep-vals)]
                         (try
-                          ((apply g args) world)
+                          (apply g world args)
                           (catch Throwable ex ;; FIXME catching throwable?!
                             (throw (ex-info (str ex) {:attribute attr-name
                                                       :spec      spec
@@ -106,77 +106,90 @@
 ;;;;;;;;;;;;;;;;;;;;
 
 (defmethod load-generator "constantly" [_]
-  (fn constantly [x] (clojure.core/constantly x)))
+  (fn constantly [_ x] x))
 
-(defmethod load-generator "uuid" [_] gen/uuid)
+(defmethod load-generator "uuid" [_] (gen/uuid))
 
-(defmethod load-generator "string" [_] gen/string)
+(defmethod load-generator "string" [_] (gen/string))
 
-(defmethod load-generator "int" [_] gen/int)
+(defmethod load-generator "int" [_]
+  (fn int
+    ([world] ((gen/int) world))
+    ([world lo hi] ((gen/int lo hi) world))))
 
-(defmethod load-generator "bigdec-cubic" [_] gen/bigdec-cubic)
+(defmethod load-generator "bigdec-cubic" [_]
+  (fn bigdec-cubic [world lo hi] ((gen/bigdec-cubic lo hi) world)))
 
-(defmethod load-generator "int-cubic" [_] gen/int-cubic)
+(defmethod load-generator "int-cubic" [_]
+  (fn int-cubic [world lo hi] ((gen/int-cubic lo hi) world)))
 
-(defmethod load-generator "int-log" [_] gen/int-log)
+(defmethod load-generator "int-log" [_]
+  (fn int-log [world lo hi] ((gen/int-log lo hi) world)))
 
 (defmethod load-generator "char" [_]
-  (fn char [& args] (apply gen/char (map first args))))
+  (fn char
+    ([world] ((gen/char) world))
+    ([world lo hi] ((gen/char (first lo) (first hi)) world))))
 
-(defmethod load-generator "one-of" [_] gen/one-of)
+(defmethod load-generator "one-of" [_]
+  (fn one-of [world x] ((gen/one-of x) world)))
 
-(defmethod load-generator "one-of-resource-lines" [_]
-  (fn one-of-resource-lines [resource]
-    (-> resource gen/lines-resource gen/one-of)))
+(defmethod load-generator "one-of-resource-lines" [{[resource] :arguments}]
+  (if resource
+    (let [lines (gen/lines-resource resource)]
+      (fn one-of-resource-lines-aot [world _]
+        ((gen/one-of lines) world)))
+    (fn one-of-resource-lines [world resource]
+      ((gen/one-of gen/lines-resource resource) world))))
 
-(defmethod load-generator "one-of-keyed-resource" [{:keys [arguments]}]
-  (let [m (-> arguments first gen/yaml-resource)]
-    (fn one-of-keyed-resource [_ k]
-      (gen/one-of (get m k)))))
+(defmethod load-generator "one-of-keyed-resource" [{[resource] :arguments}]
+  (if resource
+    (let [m (gen/yaml-resource resource)]
+      (fn one-of-keyed-resource-aot [world _ k]
+        ((gen/one-of (get m k)) world)))
+    (fn one-of-keyed-resource [world resource k]
+      ((gen/one-of (get (gen/yaml-resource resource) k)) world))))
 
-(defmethod load-generator "weighted" [_] gen/weighted)
+(defmethod load-generator "weighted" [_]
+  (fn weighted [world x] ((gen/weighted x) world)))
 
-(defmethod load-generator "weighted-set" [_] gen/weighted-set)
+(defmethod load-generator "weighted-set" [_]
+  (fn weighted-set [world x] ((gen/weighted-set x) world)))
 
 (defmethod load-generator "format" [_]
-  (fn format-generator [& args] (fn format [_] (apply clojure.core/format args))))
+  (fn format [world & args] (apply clojure.core/format args)))
 
-(defmethod load-generator "text-from-resource" [{[resource & other] :arguments}]
-  (if (and resource (not other)) ;; corpus already known AOT
+(defmethod load-generator "text-from-resource" [{[resource] :arguments}]
+  (if resource
     (let [state-space (mc/analyse-text (gen/resource resource))]
-      (fn text-from-resource-aot [_]
-        (fn generate-text-aot [_] (mc/generate-text state-space))))
-    (fn text-from-resource [resource]
+      (fn text-from-resource-aot [_ _]
+        (mc/generate-text state-space)))
+    (fn text-from-resource [_ resource]
       (let [state-space (mc/analyse-text (gen/resource resource))]
-        (fn generate-text [_] (mc/generate-text state-space))))))
+        (mc/generate-text state-space)))))
 
 (defmethod load-generator "lorum-ipsum" [_]
   (let [state-space (mc/analyse-text (gen/resource "nl/surf/demo_data/lorum-ipsum.txt"))]
-    (fn []
-      (fn lorum-ipsum [_] (mc/generate-text state-space)))))
+    (fn lorum-ipsum [_] (mc/generate-text state-space))))
 
 (defmethod load-generator "inc" [_]
-  (fn [v]
-    (fn inc [_] (clojure.core/inc v))))
+  (fn inc [_ v] (clojure.core/inc v)))
 
 (defmethod load-generator "first-weekday-of" [_]
-  (fn [weekday month year]
-    (fn first-weekday-of [_]
-      (date-util/nth-weekday-of 0 weekday year month))))
+  (fn first-weekday-of [_ weekday month year]
+    (date-util/nth-weekday-of 0 weekday year month)))
 
 (defmethod load-generator "last-day-of" [_]
-  (fn [month year]
-    (fn last-day-of [_]
-      (date-util/last-day-of year month))))
+ (fn last-day-of [_ month year]
+   (date-util/last-day-of year month)))
 
 (defmethod load-generator "abbreviate" [_]
-  (fn [x]
-    (fn abbreviate [_]
-      (->> (s/split x #"[^a-zA-Z]")
-           (map first)
-           (apply str)
-           (s/upper-case)
-           (str (when (> world/*retry-attempt-nr* 0) world/*retry-attempt-nr*))))))
+  (fn abbreviate [_ x]
+    (->> (s/split x #"[^a-zA-Z]")
+         (map first)
+         (apply str)
+         (s/upper-case)
+         (str (when (> world/*retry-attempt-nr* 0) world/*retry-attempt-nr*)))))
 
 ;;;;;;;;;;;;;;;;;;;;
 
