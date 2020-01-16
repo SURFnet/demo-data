@@ -53,10 +53,11 @@
                         (try
                           (apply g world args)
                           (catch Exception ex
-                            (throw (ex-info (str ex) {:attribute attr-name
-                                                      :generator spec
-                                                      :arguments (into [world] args)
-                                                      :cause     ex}))))))
+                            (throw (ex-info (str ex)
+                                            {:attribute attr-name
+                                             :generator spec
+                                             :arguments (into [world] args)}
+                                            ex))))))
                     spec))
 
                 (contains? attr :value)
