@@ -10,44 +10,44 @@
 (defn uuid
   "Build a generator to pick UUIDs."
   []
-  (fn [_]
+  (fn uuid [_]
     (gen/uuid)))
 
 (defn string
   "Build a generator to pick random strings of characters."
   []
-  (fn [_]
+  (fn string [_]
     (gen/string)))
 
 (defn int
   "Build a generator to pick a integer uniformly distributed between `lo` and
   `hi`, both inclusive."
   ([]
-   (fn [_]
+   (fn int [_]
      (gen/int)))
   ([lo hi]
-   (fn [_]
+   (fn int-2[_]
      (gen/uniform lo (inc hi)))))
 
 (defn bigdec-cubic
   "Build a generator to pick a long distributed between `lo` and `hi`, both
   inclusive.  This generator has cubic biased toward `hi`."
   [lo hi]
-  (fn [_]
+  (fn bigdec-cubic [_]
     (let [d (bigdec (- hi lo))]
       (+ lo (Math/cbrt (* (.nextDouble gen/*rnd*) (* d d d)))))))
 
 (defn int-cubic
   "Like `bigdec-cubic` but returns an int."
   [lo hi]
-  (fn [_]
+  (fn int-cubic [_]
     (core/int ((bigdec-cubic lo hi) _))))
 
 (defn int-log
   "Build a generator to pick a long distributed between `lo` and `hi`, both
   inclusive.  This generator has logarithmic biased toward `hi`."
   [lo hi]
-  (fn [_]
+  (fn int-log [_]
     (let [d (- hi lo)]
       (core/int (+ lo (Math/log (* (.nextDouble gen/*rnd*) (Math/exp d))))))))
 
@@ -56,22 +56,22 @@
   `hi`, both inclusive.  Without boundaries a printable ASCII character is
   picked."
   ([]
-   (fn [_]
+   (fn char [_]
      (gen/printable-ascii-char)))
   ([lo hi]
-   (fn [_]
+   (fn char-2 [_]
      (core/char (gen/uniform (core/int lo) (inc (core/int hi)))))))
 
 (defn one-of
   "Build a generator to pick one of `coll`."
   [coll]
-  (fn [_]
+  (fn one-of [_]
     (apply gen/one-of coll)))
 
 (defn one-of-each
   "Build a generator to pick one item from each collection in `colls`."
   [colls]
-  (fn [_]
+  (fn one-of-each [_]
     (map #(apply gen/one-of %) colls)))
 
 (defn weighted
@@ -80,7 +80,7 @@
   For example: with `{\"foo\" 2, \"bar\" 1}` there's a 2 in 3 chance `\"foo\"`
   will be picked."
   [m]
-  (fn [_]
+  (fn weighted [_]
     (gen/weighted m)))
 
 (defn weighted-set
@@ -88,15 +88,16 @@
 
   TODO FIXME"
   [m]
-  (fn [_]
+  (fn weighted-set [_]
     (set (repeatedly (count m) #(gen/weighted m)))))
 
 (defn format
   "Build a generator for strings using a `fmt` as in `clojure.core/format` and
   `arg-gens` generators as arguments."
+  {:deprecated "0"}
   [fmt & arg-gens]
-  (fn [world]
-    (let [args (map (fn [gen] (gen world)) arg-gens)]
+  (fn format [world]
+    (let [args (map #(% world) arg-gens)]
       (apply core/format fmt args))))
 
 (defn object
@@ -109,9 +110,10 @@
                m)))
 
 (defn text
+  {:deprecated "0"}
   [corpus & {:keys [lines lookback] :or {lines 3, lookback 2}}]
   (let [state-space (mc/analyse-text corpus)]
-    (fn [world]
+    (fn text [world]
       (->> (repeatedly #(mc/generate-text state-space))
            (take lines)
            (s/join "  ")))))

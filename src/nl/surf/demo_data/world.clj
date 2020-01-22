@@ -143,11 +143,13 @@
   (let [prop (first path)]
     (if (join? prop)
       (mapv #(lookup-path world % (next path))
-            (get-entities world [(first prop) [(second prop) (or (get entity (second prop))
-                                                                 (throw (ex-info (str "Cannot join on nil value for " (second prop))
-                                                                                 {:entity entity
-                                                                                  :join   prop
-                                                                                  :path   path})))]]))
+            (get-entities world [(first prop)
+                                 [(second prop)
+                                  (or (get entity (second prop))
+                                      (throw (ex-info (str "Cannot join on nil value for " (second prop))
+                                                      {:entity entity
+                                                       :join   prop
+                                                       :path   path})))]]))
       (let [value (get entity prop)]
         (if-let [path (next path)]
           (recur world (get-entity world value) path)
@@ -232,8 +234,22 @@
   [world attrs]
   (reduce gen-attrs world attrs))
 
+(defn- hidden-attr-remover [attrs]
+  (let [hidden? (->> attrs (filter :hidden) (map :name) set)
+        remover (fn [x [k _]] (if (hidden? k) (dissoc x k) x))]
+    (fn [x]
+      (reduce remover x x))))
+
+(defn- remove-hidden-attrs
+  "Remove all attributes from `world` marked as hidden in `attrs`."
+  [attrs world]
+  (reduce (fn [m [k entities]]
+            (assoc m k (mapv (hidden-attr-remover attrs) entities)))
+          (empty world)
+          world))
+
 (defn gen
-  "Generate a world given `attrs` and `dist`"
+  "Generate a world given `attrs` and `dist`."
   [attrs dist]
   ;; TODO: check that keys in dist occur in attrs namespaces
   (let [world (reduce (fn [m [type amount]]
@@ -244,4 +260,5 @@
                       dist)]
     (->> attrs
          sort-attrs
-         (populate world))))
+         (populate world)
+         (remove-hidden-attrs attrs))))
