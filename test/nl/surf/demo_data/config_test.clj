@@ -1,39 +1,45 @@
 (ns nl.surf.demo-data.config-test
   (:refer-clojure :exclude [load])
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.repl :as repl]
-            [nl.surf.demo-data.world :as world]
             [nl.surf.demo-data.config :as sut]))
 
 (deftest load
   (testing "attributes"
     (testing "basic"
       (let [attr (-> {:types [{:name       "this"
-                               :attributes {:firstAttr {:generator ["constantly" "test"]}}}]}
+                               :attributes {:att {:generator ["constantly" "test"]}}}]}
                      sut/load
                      first)]
-        (is (= :this/firstAttr (:name attr)))
+        (is (= :this/att (:name attr)))
         (is (-> attr :generator fn?))
         (is (= "constantly" (-> attr :generator meta :name)))
         (is (= ["test"] (-> attr :generator meta :arguments)))
         (is (= "test" ((:generator attr) {})))))
 
-    (testing "deps"
+    (testing "pass through attribute props"
       (let [attr (-> {:types [{:name       "this"
-                               :attributes {:firstAttr {:generator "constantly"
-                                                        :deps      ["other/attr"]}}}]}
+                               :attributes {:att {:optional true, :testing 1}}}]}
                      sut/load
                      first)]
-        (is (= :this/firstAttr (:name attr)))
+        (is (= true (:optional attr)))
+        (is (= 1 (:testing attr)))))
+
+    (testing "deps"
+      (let [attr (-> {:types [{:name       "this"
+                               :attributes {:att {:generator "constantly"
+                                                  :deps      ["other/attr"]}}}]}
+                     sut/load
+                     first)]
+        (is (= :this/att (:name attr)))
         (is (fn? (:generator attr)))
         (is (= "test" ((:generator attr) {:dep-vals ["test"]})))))
 
     (testing "value"
       (let [attr (-> {:types [{:name       "this"
-                               :attributes {:firstAttr {:value "test"}}}]}
+                               :attributes {:att {:value "test"}}}]}
                      sut/load
                      first)]
-        (is (= :this/firstAttr (:name attr)))
+        (is (= :this/att (:name attr)))
         (is (fn? (:generator attr)))
         (is (= "test" ((:generator attr) {:dep-vals ["test"]}))))))
 

@@ -36,35 +36,33 @@
   (mapv keywordize-deps (vectorize dep)))
 
 (defn- load-attr
-  [type [attr-name {:keys [hidden deps value constraints]
-                    gnrtr :generator
-                    :as attr}]]
-  {:name      (keyword type (name attr-name))
-   :hidden    hidden
-   :deps      (mapv load-dep deps)
-   :generator (cond
-                gnrtr
-                (let [[name & args] (vectorize gnrtr)
-                      spec          {:name name, :arguments args}
-                      g             (generator spec)]
-                  (with-meta
-                    (fn [{:keys [dep-vals] :as world}]
-                      (let [args (concat args dep-vals)]
-                        (try
-                          (apply g world args)
-                          (catch Exception ex
-                            (throw (ex-info (str ex)
-                                            {:attribute attr-name
-                                             :generator spec
-                                             :arguments (into [world] args)}
-                                            ex))))))
-                    spec))
+  [type [attr-name {:keys [deps value constraints] gnrtr :generator :as attr}]]
+  (assoc attr
+         :name      (keyword type (name attr-name))
+         :deps      (mapv load-dep deps)
+         :generator (cond
+                      gnrtr
+                      (let [[name & args] (vectorize gnrtr)
+                            spec          {:name name, :arguments args}
+                            g             (generator spec)]
+                        (with-meta
+                          (fn [{:keys [dep-vals] :as world}]
+                            (let [args (concat args dep-vals)]
+                              (try
+                                (apply g world args)
+                                (catch Exception ex
+                                  (throw (ex-info (str ex)
+                                                  {:attribute attr-name
+                                                   :generator spec
+                                                   :arguments (into [world] args)}
+                                                  ex))))))
+                          spec))
 
-                (contains? attr :value)
-                (with-meta
-                  (constantly value)
-                  {:value value}))
-   :constraints (map constraint constraints)})
+                      (contains? attr :value)
+                      (with-meta
+                        (constantly value)
+                        {:value value}))
+         :constraints (map constraint constraints)))
 
 (defn- load-unique-refs
   [type [ref-name {:keys [deps attributes unique] :as ref}]]
