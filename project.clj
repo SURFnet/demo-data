@@ -16,4 +16,5 @@
                  [ring/ring-json "0.5.0"]
                  [ring/ring-devel "1.8.0"]]
   :repl-options {:init-ns nl.surf.demo-data.world}
-  :resource-paths ["resources" "generated"])
+  :resource-paths ["resources" "generated"]
+  :profiles {:dev {:resource-paths ["dev-resources"]}})
