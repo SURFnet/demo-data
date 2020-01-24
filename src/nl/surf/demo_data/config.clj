@@ -218,6 +218,19 @@
          (s/upper-case)
          (str (when (> world/*retry-attempt-nr* 0) world/*retry-attempt-nr*)))))
 
+(defmethod generator "object" [_]
+  (fn object [world & keys-n-args]
+    (when-not (even? (count keys-n-args))
+      (ex-info "Expected even amount of arguments" {:args keys-n-args}))
+    (let [n (/ (count keys-n-args) 2)]
+      (apply hash-map (mapcat (fn [k v] [k v])
+                              (take n keys-n-args)
+                              (drop n keys-n-args))))))
+
+(defmethod generator "join" [_]
+  (fn join [world & xs]
+    (->> xs (filter identity) (s/join " "))))
+
 ;;;;;;;;;;;;;;;;;;;;
 
 (defmethod constraint "unique" [_] constraints/unique)
