@@ -11,8 +11,8 @@
 
 (defn generate
   [schema population out]
-  (spit out (json/generate-string (world/gen (json/parse-string (slurp schema))
-                                             (json/parse-string (slurp population))))))
+  (spit out (json/generate-string (world/gen (json/parse-string (slurp schema) keyword)
+                                             (json/parse-string (slurp population) keyword)))))
 
 (defn -main [& [command & args]]
   (case command
