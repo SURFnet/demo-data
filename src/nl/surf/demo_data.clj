@@ -1,5 +1,6 @@
 (ns nl.surf.demo-data
   (:require [nl.surf.demo-data.bootstrap :as bootstrap]
+            [nl.surf.demo-data.config :as config]
             [nl.surf.demo-data.world :as world]
             [clojure.java.io :as io]
             [cheshire.core :as json])
@@ -9,9 +10,13 @@
   [in out]
   (spit out (json/generate-string (bootstrap/spec->types (json/parse-string (slurp in))))))
 
+(defn load-config
+  [schema]
+  (config/load (json/parse-string (slurp schema) keyword)))
+
 (defn generate
   [schema population out]
-  (spit out (json/generate-string (world/gen (json/parse-string (slurp schema) keyword)
+  (spit out (json/generate-string (world/gen (load-config schema)
                                              (json/parse-string (slurp population) keyword)))))
 
 (defn -main [& [command & args]]
