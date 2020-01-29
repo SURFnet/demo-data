@@ -14,12 +14,12 @@ Can generate and export relational data for demo purposes
 ## Use standalone (uberjar)
 
 ```
-java -jar target/demo-data-0.1.0-SNAPSHOT.jar bootstrap \
+java -jar target/demo-data-0.1.0-SNAPSHOT-standalone.jar bootstrap \
   path-to-swagger.json demodata-schema.json
 ```
 
 ```
-java -jar target/demo-data-0.1.0-SNAPSHOT.jar generate \
+java -jar target/demo-data-0.1.0-SNAPSHOT-standalone.jar generate \
   demodata-schema.json demodata-population.json output.json
 ```
 
