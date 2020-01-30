@@ -43,7 +43,8 @@
   [schema population & [out]]
   (let [result (json/generate-string (world/gen (load-config schema)
                                                 (json/parse-string (slurp population) keyword))
-                                     {:pretty true})]
+                                     {:pretty true
+                                      :key-fn name})]
     (if out
       (spit out result)
       (println result))))
