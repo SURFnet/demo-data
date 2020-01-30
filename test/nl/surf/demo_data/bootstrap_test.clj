@@ -1,8 +1,8 @@
 (ns nl.surf.demo-data.bootstrap-test
-  (:require [nl.surf.demo-data.bootstrap :as bootstrap]
-            [cheshire.core :as json]
-            [clojure.test :refer [deftest is testing]]
-            [clojure.java.io :as io]))
+  (:require [cheshire.core :as json]
+            [clojure.java.io :as io]
+            [clojure.test :refer [deftest is]]
+            [nl.surf.demo-data.bootstrap :as bootstrap]))
 
 (defonce spec (-> "ooapi.json"
                   io/resource

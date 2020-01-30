@@ -14,16 +14,19 @@
 ;; with this program. If not, see http://www.gnu.org/licenses/.
 
 (ns nl.surf.demo-data
-  (:require [nl.surf.demo-data.bootstrap :as bootstrap]
+  (:gen-class)
+  (:require [cheshire.core :as json]
+            [nl.surf.demo-data.bootstrap :as bootstrap]
             [nl.surf.demo-data.config :as config]
-            [nl.surf.demo-data.world :as world]
-            [clojure.java.io :as io]
-            [cheshire.core :as json])
-  (:gen-class))
+            [nl.surf.demo-data.world :as world]))
 
 (defn bootstrap
-  [in out]
-  (spit out (json/generate-string (bootstrap/spec->types (json/parse-string (slurp in))))))
+  [in schema-path & [population-path]]
+  (let [schema     (bootstrap/spec->types (json/parse-string (slurp in)))
+        population (->> schema :types (map :name) (reduce (fn [m k] (assoc m k 1)) (sorted-map)))]
+    (spit schema-path (json/generate-string schema {:pretty true}))
+    (when population-path
+      (spit population-path (json/generate-string population {:pretty true})))))
 
 (defn load-config
   [schema]
@@ -32,7 +35,8 @@
 (defn generate
   [schema population out]
   (spit out (json/generate-string (world/gen (load-config schema)
-                                             (json/parse-string (slurp population) keyword)))))
+                                             (json/parse-string (slurp population) keyword))
+                                  {:pretty true})))
 
 (defn -main [& [command & args]]
   (case command
@@ -44,15 +48,14 @@ Available commands:
 
   - help:      print this help
 
-  - bootstrap $in $out: create a schema from an openapi json spec
-     - $in: path to openapi json specification file
-     - $out: path to write a demo-data schema configuration file
+  - bootstrap IN SCHEMA [POPULATION]: create a schema from an swagger JSON spec
+     - IN: path to swagger JSON specification file
+     - SCHEMA: path to write a demo-data schema configuration file
+     - POPULATION: (optional) path to write a demo-data population count map
 
-  - generate $schema $population $out:  generate a dataset
-     - $schema: path to schema configuration file
-     - $population: path to json population count map
-     - $out: path to write a json data set
+  - generate SCHEMA POPULATION OUT:  generate a dataset
+     - SCHEMA: path to schema configuration file
+     - POPULATION: path to JSON population count map
+     - OUT: path to write a JSON data set
 ")
     (println "Unknown command: try java -jar demo-data-standalone.jar help")))
-
-
