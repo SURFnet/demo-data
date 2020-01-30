@@ -14,7 +14,8 @@
                  [org.slf4j/slf4j-log4j12 "1.7.30"]
                  [ring/ring-jetty-adapter "1.8.0"]
                  [ring/ring-json "0.5.0"]
-                 [ring/ring-devel "1.8.0"]]
+                 [ring/ring-devel "1.8.0"]
+                 [cheshire/cheshire "5.9.0"]]
   :repl-options {:init-ns nl.surf.demo-data.world}
   :resource-paths ["resources" "generated"]
   :profiles {:dev {:resource-paths ["dev-resources"]}

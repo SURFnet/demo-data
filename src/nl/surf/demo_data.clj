@@ -14,16 +14,16 @@
 ;; with this program. If not, see http://www.gnu.org/licenses/.
 
 (ns nl.surf.demo-data
-  (:require [nl.surf.demo-data.bootstrap :as bootstrap]
+  (:gen-class)
+  (:require [cheshire.core :as json]
+            [nl.surf.demo-data.bootstrap :as bootstrap]
             [nl.surf.demo-data.config :as config]
-            [nl.surf.demo-data.world :as world]
-            [clojure.java.io :as io]
-            [cheshire.core :as json])
-  (:gen-class))
+            [nl.surf.demo-data.world :as world]))
 
 (defn bootstrap
   [in out]
-  (spit out (json/generate-string (bootstrap/spec->types (json/parse-string (slurp in))))))
+  (spit out (json/generate-string (bootstrap/spec->types (json/parse-string (slurp in)))
+                                  {:pretty true})))
 
 (defn load-config
   [schema]
@@ -32,7 +32,8 @@
 (defn generate
   [schema population out]
   (spit out (json/generate-string (world/gen (load-config schema)
-                                             (json/parse-string (slurp population) keyword)))))
+                                             (json/parse-string (slurp population) keyword))
+                                  {:pretty true})))
 
 (defn -main [& [command & args]]
   (case command

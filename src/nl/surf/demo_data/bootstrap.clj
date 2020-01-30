@@ -14,8 +14,7 @@
 ;; with this program. If not, see http://www.gnu.org/licenses/.
 
 (ns nl.surf.demo-data.bootstrap
-  (:require [cheshire.core :as json]
-            [clojure.string :as string]))
+  (:require [clojure.string :as string]))
 
 (defmulti prop->attributes
   (fn [ctx {:strs [type] :as property}]
