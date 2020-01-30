@@ -212,7 +212,10 @@
 
 (defmethod generator "lorum-ipsum" [_]
   (let [state-space (mc/analyse-text (gen/resource "nl/surf/demo_data/lorum-ipsum.txt"))]
-    (fn lorum-ipsum [_] (mc/generate-text state-space))))
+    (fn lorum-ipsum [_ & [lines]]
+      (->> #(mc/generate-text state-space)
+           (repeatedly (or lines 3))
+           (s/join " ")))))
 
 (defmethod generator "inc" [_]
   (fn inc [_ v] (clojure.core/inc v)))
