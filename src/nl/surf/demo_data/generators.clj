@@ -135,9 +135,13 @@
 
 ;;;; Helpers
 
+(def ^:dynamic *resource-class-loader* nil)
+
 (defn- checked-resource
   [name]
-  (or (io/resource name)
+  (or (if *resource-class-loader*
+        (io/resource name *resource-class-loader*)
+        (io/resource name))
       (throw (ex-info (str "Resource not found: `" name "`")
                       {:name name}))))
 

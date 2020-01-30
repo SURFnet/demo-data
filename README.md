@@ -2,6 +2,7 @@
 
 Can generate and export relational data for demo purposes
 
+
 ## Requirements
 
 - Get [leiningen](https://leiningen.org/)
@@ -11,17 +12,27 @@ Can generate and export relational data for demo purposes
 - Create standalone jar for command line use (in target directory):
   `lein uberjar`
 
+
 ## Use standalone (uberjar)
+
+
+### Bootstrap from swagger.json
 
 ```
 java -jar target/demo-data-standalone.jar bootstrap \
   path-to-swagger.json demodata-schema.json demodata-population.json
 ```
 
+
+### Generate data
+
 ```
 java -jar target/demo-data-standalone.jar generate \
   demodata-schema.json demodata-population.json output.json
 ```
+
+Please note: running /generate/ standalone will allow loading resources from
+the current working directory and up.
 
 
 ## License

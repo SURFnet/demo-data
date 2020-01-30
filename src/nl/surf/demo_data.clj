@@ -18,7 +18,10 @@
   (:require [cheshire.core :as json]
             [nl.surf.demo-data.bootstrap :as bootstrap]
             [nl.surf.demo-data.config :as config]
-            [nl.surf.demo-data.world :as world]))
+            [nl.surf.demo-data.generators :as generators]
+            [nl.surf.demo-data.world :as world])
+  (:import java.io.File
+           [java.net URL URLClassLoader]))
 
 (defn bootstrap
   [in schema-path & [population-path]]
@@ -39,10 +42,12 @@
                                   {:pretty true})))
 
 (defn -main [& [command & args]]
-  (case command
-    "bootstrap" (apply bootstrap args)
-    "generate" (apply generate args)
-    "help" (println "Usage: java -jar demo-data-standalone.jar command args*
+  (let [cl (URLClassLoader. (into-array [(URL. (str "file://" (-> (File. "") .getAbsolutePath) "/"))]))]
+    (binding [generators/*resource-class-loader* cl]
+      (case command
+        "bootstrap" (apply bootstrap args)
+        "generate"  (apply generate args)
+        "help"      (println "Usage: java -jar demo-data-standalone.jar command args*
 
 Available commands:
 
@@ -58,4 +63,4 @@ Available commands:
      - POPULATION: path to JSON population count map
      - OUT: path to write a JSON data set
 ")
-    (println "Unknown command: try java -jar demo-data-standalone.jar help")))
+        (println "Unknown command: try java -jar demo-data-standalone.jar help")))))
