@@ -249,6 +249,18 @@
   (fn join [world & xs]
     (->> xs (filter identity) (s/join " "))))
 
+(defmethod generator "date" [_]
+  (fn date [world lo hi]
+    (let [lo (date-util/->msecs-since-epoch (date-util/parse-date lo))
+          hi (date-util/->msecs-since-epoch (date-util/parse-date hi))]
+      (date-util/<-msecs-since-epoch ((gen/int lo hi) world)))))
+
+(defmethod generator "timestamp" [_]
+  (fn date [world lo hi]
+    (let [lo (date-util/->msecs-since-epoch (date-util/parse-timestamp lo))
+          hi (date-util/->msecs-since-epoch (date-util/parse-timestamp hi))]
+      (.toInstant (date-util/<-msecs-since-epoch ((gen/int lo hi) world))))))
+
 ;;;;;;;;;;;;;;;;;;;;
 
 (defmethod constraint "unique" [_] constraints/unique)

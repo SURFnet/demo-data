@@ -16,12 +16,16 @@
 (ns nl.surf.demo-data
   (:gen-class)
   (:require [cheshire.core :as json]
+            [cheshire.generate :as json-gen]
             [nl.surf.demo-data.bootstrap :as bootstrap]
             [nl.surf.demo-data.config :as config]
+            [nl.surf.demo-data.date-util :as date-util]
             [nl.surf.demo-data.generators :as generators]
             [nl.surf.demo-data.world :as world])
   (:import java.io.File
-           [java.net URL URLClassLoader]))
+           [java.net URL URLClassLoader]
+           java.time.Instant
+           java.util.Calendar))
 
 (defn bootstrap
   [in schema-path & [population-path]]
@@ -45,6 +49,9 @@
       (println result))))
 
 (defn -main [& [command & args]]
+  (json-gen/add-encoder Calendar (fn [c g] (.writeString g (date-util/rfc3339-date c))))
+  (json-gen/add-encoder Instant (fn [c g] (.writeString g (date-util/rfc3339-instant c))))
+
   (let [cl (URLClassLoader. (into-array [(URL. (str "file://" (-> (File. "") .getAbsolutePath) "/"))]))]
     (binding [generators/*resource-class-loader* cl]
       (case command

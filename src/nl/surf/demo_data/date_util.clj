@@ -17,25 +17,29 @@
   (:refer-clojure :exclude [get])
   (:require [clojure.string :as s])
   (:import java.text.SimpleDateFormat
-           java.util.Calendar))
+           java.util.Calendar
+           java.util.Date
+           java.time.Instant))
 
-(defn simple-format [^String format ^Calendar inst]
-  (.format (doto (SimpleDateFormat. format) (.setCalendar inst)) (.getTime inst)))
-
-(defn rfc3339
+(defn rfc3339-instant
   "Format given `inst` to RFC 3339 defined string (only the date part)."
-  [^Calendar inst]
-  (simple-format "yyyy-MM-dd'T'HH:mm:ssXXX" inst))
+  [^Instant inst]
+  (.format (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ssXXX") (Date/from inst)))
 
 (defn rfc3339-date
   "Format given `inst` to RFC 3339 defined string."
   [^Calendar inst]
-  (simple-format "yyyy-MM-dd" inst))
+  (.format (doto (SimpleDateFormat. "yyyy-MM-dd") (.setCalendar inst)) (.getTime inst)))
 
 (defn parse-date
   [^String s]
   (doto (Calendar/getInstance)
     (.setTime (.parse (SimpleDateFormat. "yyyy-MM-dd") s))))
+
+(defn parse-timestamp
+  [^String s]
+  (doto (Calendar/getInstance)
+    (.setTime (.parse (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ssXXX") s))))
 
 (defn calendar-field-from-string [name]
   (.get (.getDeclaredField Calendar (s/upper-case name)) nil))
