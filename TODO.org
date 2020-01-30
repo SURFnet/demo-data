@@ -1,0 +1,27 @@
+* SURFnet DemoData :surf-demo-data:
+
+** TODO improve refs in configuration [0/3]
+
+   Only many-to-one relations look sensible at the moment.
+
+   - [ ] one-to-many and one-to-one should be really easy to write down
+   - [ ] many-to-many does not allow a non-unique variant
+   - [ ] many-to-many uniqueness where one side is to be exhausted first looks
+     funky
+
+** TODO ability to provide seed in command line
+
+   Running from the command line will, currently, always yield the same
+   result.  It should use a random seed unless a seed is provided.
+
+** TODO obsolete and ns generators
+
+   All these are thinly wrapped by config/generators
+
+** TODO allow dots as type/attribute separator
+
+   Dots are more pleasing to JSON acquainted eyes.
+
+** TODO dep shortcut by allowing omission of type when inferable
+
+   Referring to self should not require a type prefix.

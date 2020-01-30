@@ -207,11 +207,15 @@
 (defmethod generator "text-from-resource" [{[resource] :arguments}]
   (if resource
     (let [state-space (mc/analyse-text (gen/resource resource))]
-      (fn text-from-resource-aot [_ _]
-        (mc/generate-text state-space)))
-    (fn text-from-resource [_ resource]
+      (fn text-from-resource-aot [_ _ & [lines]]
+        (->> #(mc/generate-text state-space)
+             (repeatedly (or lines 3))
+             (s/join " "))))
+    (fn text-from-resource [_ resource & [lines]]
       (let [state-space (mc/analyse-text (gen/resource resource))]
-        (mc/generate-text state-space)))))
+        (->> #(mc/generate-text state-space)
+             (repeatedly (or lines 3))
+             (s/join " "))))))
 
 (defmethod generator "lorum-ipsum" [_]
   (let [state-space (mc/analyse-text (gen/resource "nl/surf/demo_data/lorum-ipsum.txt"))]
@@ -221,7 +225,12 @@
            (s/join " ")))))
 
 (defmethod generator "inc" [_]
-  (fn inc [_ v] (clojure.core/inc v)))
+  (fn inc [_ v]
+    (+ (clojure.core/inc v) world/*retry-attempt-nr*)))
+
+(defmethod generator "dec" [_]
+  (fn dec [_ v]
+    (- (clojure.core/dec v) world/*retry-attempt-nr*)))
 
 (defmethod generator "first-weekday-of" [_]
   (fn first-weekday-of [_ weekday month year]
@@ -250,7 +259,7 @@
 
 (defmethod generator "join" [_]
   (fn join [world & xs]
-    (->> xs (filter identity) (s/join " "))))
+    (->> xs (map str) (filter (complement s/blank?)) (s/join " "))))
 
 (defmethod generator "date" [_]
   (fn date [world lo hi]

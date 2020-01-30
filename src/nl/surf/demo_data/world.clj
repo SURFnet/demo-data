@@ -264,15 +264,15 @@
           world))
 
 (defn gen
-  "Generate a world given `attrs` and `dist`."
-  [attrs dist]
-  ;; TODO: check that keys in dist occur in attrs namespaces
+  "Generate a world given `attrs` and `pop`."
+  [attrs pop]
+  ;; TODO: check that keys in pop occur in attrs namespaces
   (let [world (reduce (fn [m [type amount]]
                         ;; entities needs to be a vector so we can
                         ;; update-in specific entities
                         (assoc m type (vec (repeat amount {}))))
                       {}
-                      dist)]
+                      pop)]
     (->> attrs
          sort-attrs
          (populate world)

@@ -1,0 +1,458 @@
+* SURFnet DemoData toolkit
+
+  Can generate and export relational data for demo purposes. Useful for
+  filling, for instance, a database with dummy data the looks real enough to
+  use for demonstrations. See [[https://github.com/zeekat/surf-demodata-ooapi][OOAPI-demodata]] for an example of a web service
+  which is exposes demo data generated using this toolkit.
+
+** Installation
+
+   - Get [[https://leiningen.org/][leiningen]]
+
+   - Clone this repository
+
+   - Install locally as a jar: ~lein install~
+
+   - Create standalone jar for command line: ~lein uberjar~
+
+** Usage
+
+   The DemoData toolkit requires two descriptors to generate data:
+
+   - *schema* describing all the types, referencies between types, the type
+     attributes, their dependencies, constraints and generators
+
+     Basic shape:
+
+     #+BEGIN_SRC json
+     {
+       "types": [
+         {
+           "name": "cat",
+           "refs": { ... },
+           "attributes": { ... },
+         }, {
+           "name": "person",
+           ...
+         }
+       ]
+     }
+     #+END_SRC
+
+     For an example see also [[file:doc/cats-schema.json][doc/cats-schema.json]].
+
+   - *population* map providing the number of instances to generate per type
+
+     For an example see [[file:doc/cats-population.json][doc/cats-population.json]].
+
+     #+BEGIN_SRC json
+     {
+       "cat": 10,
+       "person": 30,
+       ...
+     }
+     #+END_SRC
+
+*** Generation process
+
+    First some terminology to avoid confusion: a /type/ is a collection of
+    /attributes/ and /refs/.  The /types/ will be instantiated into /entities/
+    having /properties/ derived from the /attributes/ and /refs/ of that
+    /type/.
+
+    The data generation process is attribute driven and goes through 3 phases:
+
+    1. empty entities are created according to the distribution defined by the
+       population descriptor
+
+    2. refs are transformed into attributes, so a ref becomes a property of an
+       entity
+
+    3. entity properties are generated in topological attribute order, meaning
+       properties without dependencies are generated first and the properties
+       that depend on those properties later.
+
+*** Attributes
+
+    An attribute is described by the following, please note all of them are optional:
+
+    - *value*
+
+      Specifying a /value/ will cause the property of the generated entities to
+      always be instantiated with the given value.
+
+    - *generator*
+
+      A named generator as string or array.  In case of an array the first
+      element of the array is the name of the generator, the rest of the
+      elements are arguments to the generator; ~["int", 1, 10]~ will pick a
+      number between 1 and 10.
+
+    - *constraints*
+
+      A list of constraints.  Currently only ~unique~ is available and will
+      cause retries when other entities in the set have already take the
+      generated value.
+
+    - *deps*
+
+      A list of attribute this property depends on.  These are full qualified
+      names like ~person/name~ and may be paths into related (see [[Refs]]) using
+      a nested list like ~["person/cat", "cat/name"]~.
+
+      If a generator is specified the associated depend values will be added
+      to the argument list to the generator.  When no generator is specified
+      the values will be passed as is to a property when instantiating
+      entities.
+
+    - *hidden*
+
+      Properties generated from an attribute marked as hidden will be
+      discarded in the final output.  This defaults to ~false~.
+
+*** Refs
+
+    *Warning*: this part of the toolkit is still very rough around the edges!
+
+    This toolkit supports the following relations through configuration:
+
+    - many-to-one
+
+      From the /person/ ~"refs"~ in the [[file:doc/cats-schema.json][cats example]]:
+
+      #+BEGIN_SRC json
+      "cat": {
+        "deps": ["cat/name"]
+      }
+      #+END_SRC
+
+      Here a person is associated with a random cat in the generated cats
+      using the cat's name as a key.  This will create a (by default) hidden
+      foreign key property named ~"cat"~ for a person which can be used to
+      make a SQL-like join.  To get from a person to the cat's favorite, add
+      an attribute with a /dep/ like ~["person/cat", "cat/favorite"]~.
+
+      From the /person/ ~"attributes"~ in the [[file:doc/cats-schema.json][cats example]]:
+
+      #+BEGIN_SRC json
+      "dilemma": {
+        "deps": ["person/name",
+                 ["person/cat", "cat/name"],
+                 ["person/cat", "cat/favorite"]],
+        "generator": ["format", "%s loves %s but %2$s loves %s"]
+      }
+      #+END_SRC
+
+    - one-to-one (*Warning*: needs work)
+
+      TODO
+
+    - one-to-many (*Warning*: needs work)
+
+      TODO
+
+    - many-to-many (*Warning*: needs work)
+
+      We'll use a linking table which has an association with both side.  From
+      the /fed-by/ ~"refs"~ in the [[file:doc/cats-schema.json][cats example]]:
+
+      #+BEGIN_SRC json
+      "pair": {
+        "unique": true,
+        "deps": ["cat/name", "person/name"],
+        "attributes": ["cat", "person"]
+      }
+      #+END_SRC
+
+      This /ref/ yields two attributes as named above associated to the given
+      types respectively with the given keys.  The ~"unique"~ assignment
+      ensures unique pairs are selected to prevent getting multiple equal
+      relations.
+
+      In the above case the distribution of choices is random.  To steer the
+      picking of pairs to select as many different of one side as possible,
+      it's possible to provide a list of booleans to the /unique/ assignment.
+      Given the above case, having ~"unique": [true, false]~ will cause as
+      many cats to be included as possible, the selection of persons is still
+      random.
+
+*** Generators
+
+    Here's a list of the currently implemented generators:
+
+    - *uuid*
+
+      Generates a Universally Unique Identifier.
+
+    - *string*
+
+      Generates a random string.  Useful of creating test cases, not so much
+      for demo data.
+
+    - *int* (takes 2 arguments or none)
+
+      Generate an integer between [[https://docs.oracle.com/javase/7/docs/api/java/lang/Integer.html#MIN_VALUE][~MIN_VALUE~]] and [[https://docs.oracle.com/javase/7/docs/api/java/lang/Integer.html#MAX_VALUE][~MAX_VALUE~]] or between the two
+      given values (inclusive).
+
+    - *int-cubic* (takes 2 arguments or none)
+
+      Generate a integer between the two arguments with a cubic biased
+      toward the high value.
+
+    - *int-log* (takes 2 arguments or none)
+
+      Generate a integer between the two arguments with a logarithmic biased
+      toward the high value.
+
+    - *bigdec-cubic* (takes 2 arguments)
+
+      Generate a bigdecimal between the two arguments with a cubic biased
+      toward the high value.
+
+    - *char* (takes 2 arguments or none)
+
+      Generate a random printable character or between the two given values
+      (inclusive).
+
+    - *one-of* (takes 1 argument)
+
+      Take a random element from the given list.
+
+    - *one-of-resource-lines* (takes 1 argument)
+
+      Take a random line from the given file or [[https://clojure.github.io/clojure/clojure.java.io-api.html#clojure.java.io/resource][resource]].
+
+    - *one-of-keyed-resource* (takes 2 arguments)
+
+      Take a random line from a keys value of the given YAML file or
+      [[https://clojure.github.io/clojure/clojure.java.io-api.html#clojure.java.io/resource][resource]].  The first argument is the file and the second the key.
+
+    - *weighted* (takes 1 argument)
+
+      Take a value from a weighted object.  For instance: with ~{"cat" 2,
+      "ferret" 1}~ there's a 2 in 3 chance ~"cat"~ will be picked.
+
+    - *text-from-resource* (takes 1 or 2 arguments)
+
+      Generate 3 lines of text from given resource by using markov probability
+      chains.  The number of lines can be specified by a second argument.
+
+    - *lorum-ipsum* (takes 1 argument or none)
+
+      Generate 3 "lorum ipsum" lines of fake Latin text.  An optional argument
+      specifies how many lines to generate.
+
+    - *date* (takes 2 arguments)
+
+      Pick a date between the given arguments formatted ~1970-01-31~.
+
+    - *timestamp* (takes 2 arguments)
+
+      Pick a timestamp between the given arguments formatted
+      ~1970-01-31T23:59:59+01:00~.
+
+    And some generators which will transform their arguments in some way or other:
+
+    - *join* (takes any number of arguments)
+
+      Concatenate all arguments to a string separated by spaces.  Empty values
+      will be omitted.
+
+    - *format* (takes at least 1 argument)
+
+      Uses printf-like format as first argument to render the rest of the
+      arguments.  See [[https://docs.oracle.com/javase/7/docs/api/java/util/Formatter.html#syntax][syntax]] for details.
+
+    - *object* (takes an even amount of arguments)
+
+      Construct an object by splitting the list of arguments and zipping them
+      together.  For instance: ~["name", "spouse", "Fred", "Wilma"]~ will
+      become ~{"name": "Fred", "spouse": "Wilma"}~.
+
+    - *inc* (takes 1 or 2 arguments)
+
+      Increments the given argument with one.  One extra will be added on a
+      retry attempt when trying to comply to a constraint.
+
+    - *dec* (takes 1 or 2 arguments)
+
+      Same as /inc/ but decrement instead of increment.
+
+    - *first-weekday-of* (takes 3 arguments)
+
+      Determines the first given weekday of month in year.  For instance
+      ~"monday", "january", 2020~.
+
+    - *last-day-of* (takes 2 arguments)
+
+      Determines the last day of the given month in year.  For instance
+      ~"january", 2020~.
+
+    - *abbreviate* (takes 1 argument)
+
+      Make an abbreviation of group of words.  So ~"Fred loves Wilma"~ becomes
+      ~"BlW"~.  When retrying this the number of retries will be appended.
+
+    See [[Writing generators]] to write your own.
+
+** Standalone
+
+   Use this toolkit from the command line as follows:
+
+   #+BEGIN_SRC sh
+     java -jar target/demo-data-standalone.jar generate \
+       demodata-schema.json demodata-population.json output.json
+   #+END_SRC
+
+   Please note: running *generate* standalone will allow loading resources
+   from the current working directory and up.
+
+** Library
+
+   This toolkit can be used as library in your ([[https://clojure.org][Clojure]]). This will allow you
+   to generate data in memory and, more importantly, create your own
+   generators from scratch. To include this toolkit in you project, add
+   ~[nl.surf/demo-data "0.1.0-SNAPSHOT"]~ as a dependency to your
+   ~project.clj~.
+
+   The most important namespaces are:
+
+   - *nl.surf.demo-data.config*
+
+     Functions here compile your configuration to a list of "executable"
+     attributes.  See the [[file:src/nl/surf/demo_data/config.clj::(defn%20load][~load~]] function.
+
+   - *nl.surf.demo-data.world*
+
+     Functions here instantiate and populate your demo data by executing the
+     attributes as defined by ~config/load~.  See the [[file:src/nl/surf/demo_data/world.clj::(defn%20gen][~gen~]] function.
+
+   Minimal example:
+
+   #+BEGIN_SRC clojure
+   (-> {:types [{:name "person"
+                 :attributes {:name {:generator    ["one-of" ["Fred"
+                                                              "Wilma"
+                                                              "Barney"
+                                                              "Betty"]]
+                                      :constraints ["unique"]}}}]}
+       (config/load)
+       (world/gen {:person 2}))
+   #+END_SRC
+
+   Possible result:
+
+   #+BEGIN_SRC clojure
+   {:person [#:person{:name "Wilma"} #:person{:name "Barney"}]}
+   #+END_SRC
+
+   Play with the cats example:
+
+   #+BEGIN_SRC clojure
+   (-> "doc/cats-schema.json"
+       (slurp)
+       (json/parse-string keyword)
+       (config/load)
+       (world/gen (-> "doc/cats-population.json"
+                      (slurp)
+                      (json/parse-string keyword))))
+   #+END_SRC
+
+*** Writing generators
+
+    Generators are defined by the ~generator~ multi-method in the
+    ~nl.surf.demo-data.config~ namespace.  An implementation of a generator
+    should return a function which takes a least one argument; ~state~.  More
+    arguments are allowed and can be passed as described in [[Attributes]].
+
+    The ~state~ arguments contains 4 keys:
+
+    - ~entity~
+
+      The current entity populated so far.
+
+    - ~world~
+
+      A map of all the entities populated so far by type.
+
+    - ~attr~
+
+      The internal "executable" representation of the attribute.
+
+    - ~dep-vals~ (internal)
+
+      The internal list of deferred /deps/ values.  These are also passed on
+      the argument list.
+
+    Here a very basic example generator which sticks a exclamation mark after
+    a string, ~exclaim!~:
+
+    #+BEGIN_SRC clojure
+    (defmethod config/generator "exclaim!" [_]
+      (fn [world value]
+        (str value "!")))
+    #+END_SRC
+
+    To handle retries for a constraint consider the ~world/*retry-attempt-nr*~
+    binding:
+
+    #+BEGIN_SRC clojure
+    (defmethod config/generator "exclaim!" [_]
+      (fn [_ value]
+        (apply str value (repeat (inc world/*retry-attempt-nr*) "!"))))
+    #+END_SRC
+
+    Please note: all provided generator which require randomness use
+    [[https://github.com/clojure/data.generators/][clojure.data.generators]].  If you are generating something random and need
+    a reproducible result, consider using the primitives in this library
+    and use the [[https://clojure.github.io/data.generators/#clojure.data.generators/*rnd*][*rnd*]] binding as a seeding mechanism.
+
+*** Writing constraints
+
+    Constraints are defined by the ~constraint~ multi-method in the
+    ~nl.surf.demo-data.config~ namespace.  An implementation of a constraint
+    should return a function which takes two arguments: ~state~ and the value
+    being considered.  State is the same argument as provided to generator
+    functions, see also [[Writing generators]].
+
+    Here a constraint to require an integer is even:
+
+    #+BEGIN_SRC clojure
+    (defmethod config/constraint "even" [_]
+      (fn [_ value]
+        (even? value)))
+    #+END_SRC
+
+    When a constraint is not met during generation it is retried up to a 1000
+    time (configurable with binding [[file:src/nl/surf/demo_data/world.clj::(def%20^:dynamic%20*retries*%201000)][~*retries*~]]).
+
+** Bootstrap from swagger.json
+
+   Create the schema and population descriptors from a JSON swagger defining
+   from the command line as follows:
+
+   #+BEGIN_SRC sh
+     java -jar target/demo-data-standalone.jar bootstrap \
+       path-to-swagger.json demodata-schema.json demodata-population.json
+   #+END_SRC
+
+   This will create two files, ~demodata-schema.json~ and
+   ~demodata-population.json~, for you to start generating demo data for you
+   project.
+
+** License
+
+   Copyright (C) 2020 SURFnet B.V.
+
+   This program is free software: you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by the Free
+   Software Foundation, either version 3 of the License, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+   FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+   more details.
+
+   You should have received a copy of the GNU General Public License along
+   with this program. If not, see http://www.gnu.org/licenses/.

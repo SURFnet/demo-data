@@ -1,0 +1,51 @@
+{
+  "types": [
+    {
+      "name": "cat",
+      "attributes": {
+        "name": {
+          "generator": ["one-of", ["Cleo", "Lucy", "Oliver", "Tiger"]],
+          "constraints": ["unique"]
+        },
+        "favorite": {
+          "generator": ["one-of", ["fish", "mice", "birds"]]
+        },
+        "fed-by": {
+          "deps": [[["fed-by/cat", "cat/name"], "fed-by/person", "person/name"]]
+        }
+      }
+    }, {
+      "name": "person",
+      "refs": {
+        "cat": {
+          "deps": ["cat/name"]
+        }
+      },
+      "attributes": {
+        "name": {
+          "generator": ["one-of", ["Fred", "Wilma", "Barney", "Betty"]],
+          "constraints": ["unique"]
+        },
+        "dilemma": {
+          "deps": ["person/name", ["person/cat", "cat/name"], ["person/cat", "cat/favorite"]],
+          "generator": ["format", "%s loves %s but %2$s loves %s"]
+        }
+      }
+    }, {
+      "name": "fed-by",
+      "refs": {
+        "pair": {
+          "unique": [true, false],
+          "deps": ["cat/name", "person/name"],
+          "attributes": ["cat", "person"]
+        }
+      },
+      "attributes": {
+        "arrangement": {
+          "deps": [["fed-by/person", "person/name"], ["fed-by/cat", "cat/name"]],
+          "generator": ["format", "%s feeds %s"]
+        }
+      }
+    }
+  ]
+}
