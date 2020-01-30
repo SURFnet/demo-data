@@ -18,6 +18,7 @@
                  [cheshire/cheshire "5.9.0"]]
   :repl-options {:init-ns nl.surf.demo-data.world}
   :resource-paths ["resources" "generated"]
-  :profiles {:dev {:resource-paths ["dev-resources"]}
+  :profiles {:dev     {:resource-paths ["dev-resources"]}
              :uberjar {:aot :all}}
-  :main nl.surf.demo-data)
+  :main nl.surf.demo-data
+  :uberjar-name "demo-data-standalone.jar")
