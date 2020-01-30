@@ -36,10 +36,13 @@
   (config/load (json/parse-string (slurp schema) keyword)))
 
 (defn generate
-  [schema population out]
-  (spit out (json/generate-string (world/gen (load-config schema)
-                                             (json/parse-string (slurp population) keyword))
-                                  {:pretty true})))
+  [schema population & [out]]
+  (let [result (json/generate-string (world/gen (load-config schema)
+                                                (json/parse-string (slurp population) keyword))
+                                     {:pretty true})]
+    (if out
+      (spit out result)
+      (println result))))
 
 (defn -main [& [command & args]]
   (let [cl (URLClassLoader. (into-array [(URL. (str "file://" (-> (File. "") .getAbsolutePath) "/"))]))]
@@ -58,9 +61,9 @@ Available commands:
      - SCHEMA: path to write a demo-data schema configuration file
      - POPULATION: (optional) path to write a demo-data population count map
 
-  - generate SCHEMA POPULATION OUT:  generate a dataset
+  - generate SCHEMA POPULATION [OUT]:  generate a dataset
      - SCHEMA: path to schema configuration file
      - POPULATION: path to JSON population count map
-     - OUT: path to write a JSON data set
+     - OUT: (optional) path to write a JSON data set, when not given JSON is written to STDOUT.
 ")
         (println "Unknown command: try java -jar demo-data-standalone.jar help")))))
