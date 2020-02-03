@@ -80,12 +80,13 @@
          :constraints (map constraint constraints)))
 
 (defn- load-unique-refs
-  [type [ref-name {:keys [deps attributes unique] :as ref}]]
+  [type [ref-name {:keys [deps attributes unique hidden] :as ref :or {hidden true}}]]
   (when-not (= (count deps) (count attributes))
     (throw (ex-info "Expected an attribute per dependency" {:type type, :ref ref})))
 
   (let [refs-name (keyword type (name ref-name))]
     (into [{:name      refs-name
+            :hidden    hidden
             :deps      (mapv load-dep deps)
             :generator (let [args (if (sequential? unique) unique nil)
                              spec {:name      "unique-refs"
@@ -95,6 +96,7 @@
                            spec))}]
           (mapv (fn [attr-name i]
                   {:name      (keyword type attr-name)
+                   :hidden    hidden
                    :deps      [[refs-name]]
                    :generator (with-meta
                                 (fn ref-attr [{[refs] :dep-vals}]
@@ -104,10 +106,11 @@
                 (iterate inc 0)))))
 
 (defn- load-ref
-  [type [ref-name {:keys [deps unique] :as ref}]]
+  [type [ref-name {:keys [deps hidden unique] :as ref :or {hidden true}}]]
   (if unique
     (load-unique-refs type [ref-name ref])
     [{:name      (keyword type (name ref-name))
+      :hidden    hidden
       :deps      (mapv load-dep deps)
       :generator (with-meta
                    (world/pick-ref)
