@@ -107,14 +107,16 @@
 
 (defn- load-ref
   [type [ref-name {:keys [deps hidden unique] :as ref :or {hidden true}}]]
-  (if unique
-    (load-unique-refs type [ref-name ref])
+  (if (= 1 (count deps))
     [{:name      (keyword type (name ref-name))
       :hidden    hidden
       :deps      (mapv load-dep deps)
       :generator (with-meta
-                   (world/pick-ref)
-                   {:name "ref"})}]))
+                   (if unique
+                     (world/pick-unique-ref)
+                     (world/pick-ref))
+                   {:name "ref"})}]
+    (load-unique-refs type [ref-name ref])))
 
 (defn load
   "Load configuration and return attrs definition suitable for
