@@ -19,8 +19,8 @@
 
    The DemoData toolkit requires two descriptors to generate data:
 
-   - *schema* describing all the types, referencies between types, the type
-     attributes, their dependencies, constraints and generators
+   - *schema* describing all the types, references between types, the
+     type attributes, their dependencies, constraints and generators
 
      Basic shape:
 
@@ -62,24 +62,24 @@
 
     The data generation process is attribute driven and goes through 3 phases:
 
-    1. empty entities are created according to the distribution defined by the
+    1. Empty entities are created according to the distribution defined by the
        population descriptor
 
-    2. refs are transformed into attributes, so a ref becomes a property of an
+    2. Refs are transformed into attributes, so a ref becomes a property of an
        entity
 
-    3. entity properties are generated in topological attribute order, meaning
-       properties without dependencies are generated first and the properties
-       that depend on those properties later.
+    3. Attributes are sorted in dependency order, so attributes with
+       no deps are first. Then, for every attribute in order, the
+       corresponding properties are generated entities.
 
 *** Attributes
 
-    An attribute is described by the following, please note all of them are optional:
+    An attribute is described by the following properties, all optional:
 
     - *value*
 
       Specifying a /value/ will cause the property of the generated entities to
-      always be instantiated with the given value.
+      always have the given value.
 
     - *generator*
 
@@ -131,11 +131,12 @@
       }
       #+END_SRC
 
-      Here a person is associated with a random cat in the generated cats
-      using the cat's name as a key.  This will create a (by default) hidden
-      foreign key property named ~"cat"~ for a person which can be used to
-      make a SQL-like join.  To get from a person to the cat's favorite, add
-      an attribute with a /dep/ like ~["person/cat", "cat/favorite"]~.
+      Here a person is associated with a random cat using the cat's
+      name as a key.  This will create a (hidden by default) foreign
+      key property named ~"cat"~ for a person which can be used to
+      make a SQL-like join.  To get from a person to the cat's
+      favorite, add an attribute with a /dep/ like ~["person/cat",
+      "cat/favorite"]~.
 
       From the /person/ ~"attributes"~ in the [[file:doc/cats-schema.json][cats example]]:
 
@@ -148,22 +149,33 @@
       }
       #+END_SRC
 
-    - one-to-one (*Warning*: needs work)
+    - one-to-one
 
-      TODO
+      Works similar to many-to-one, with a flag to specify that
+      selected values must be unique.
 
-    - one-to-many (*Warning*: needs work)
+      #+BEGIN_SRC json
+        {
+            "name": "person",
+            "refs": {
+                "cat": {
+                    "deps": ["cat/name"],
+                    "unique": true
+                }
+            }
+        }
+      #+END_SRC
 
-      TODO
+      This will result in a one-to-one relation provided both persons
+      and cats have the same population count.
 
     - many-to-many (*Warning*: needs work)
 
-      We'll use a linking table which has an association with both side.  From
-      the /fed-by/ ~"refs"~ in the [[file:doc/cats-schema.json][cats example]]:
+      We'll use a linking table which has an association with both
+      side.  Similar to the the /fed-by/ ~"refs"~ in the [[file:doc/cats-schema.json][cats example]]:
 
       #+BEGIN_SRC json
       "pair": {
-        "unique": true,
         "deps": ["cat/name", "person/name"],
         "attributes": ["cat", "person"]
       }
@@ -180,6 +192,24 @@
       Given the above case, having ~"unique": [true, false]~ will cause as
       many cats to be included as possible, the selection of persons is still
       random.
+
+   - one-to-many
+
+      If a reference is *to* an entity, the values can be selected via
+      a match on the referenced attribute:
+
+      #+BEGIN_SRC json
+      "attributes": {
+          ...
+          "fed-by": {
+              "deps": [[["fed-by/cat", "cat/name"], "fed-by/person", "person/name"]]
+          }
+      }
+      #+END_SRC
+
+    The ~cat/fed-by~ property will get as a value the list of zero or
+    more ~person/name~ values. The same technique can be used to find
+    matching many-to-one or many-to-many refs.
 
 *** Generators
 
