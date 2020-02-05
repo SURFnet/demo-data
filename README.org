@@ -114,6 +114,11 @@
 
     *Warning*: this part of the toolkit is still very rough around the edges!
 
+    Refs are just special attributes to define relationships between types.
+    They are /hidden/ by default, cause they have a shape which is almost
+    always considered "internal" to this library and another attribute is most
+    likely used which depends on the ref to give it a proper format.
+
     This toolkit supports the following relations through configuration:
 
     - many-to-one
