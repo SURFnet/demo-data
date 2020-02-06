@@ -80,12 +80,13 @@
          :constraints (map constraint constraints)))
 
 (defn- load-unique-refs
-  [type [ref-name {:keys [deps attributes unique] :as ref}]]
+  [type [ref-name {:keys [deps attributes unique hidden] :as ref :or {hidden true}}]]
   (when-not (= (count deps) (count attributes))
     (throw (ex-info "Expected an attribute per dependency" {:type type, :ref ref})))
 
   (let [refs-name (keyword type (name ref-name))]
     (into [{:name      refs-name
+            :hidden    hidden
             :deps      (mapv load-dep deps)
             :generator (let [args (if (sequential? unique) unique nil)
                              spec {:name      "unique-refs"
@@ -95,6 +96,7 @@
                            spec))}]
           (mapv (fn [attr-name i]
                   {:name      (keyword type attr-name)
+                   :hidden    hidden
                    :deps      [[refs-name]]
                    :generator (with-meta
                                 (fn ref-attr [{[refs] :dep-vals}]
@@ -104,14 +106,17 @@
                 (iterate inc 0)))))
 
 (defn- load-ref
-  [type [ref-name {:keys [deps unique] :as ref}]]
-  (if unique
-    (load-unique-refs type [ref-name ref])
+  [type [ref-name {:keys [deps hidden unique] :as ref :or {hidden true}}]]
+  (if (= 1 (count deps))
     [{:name      (keyword type (name ref-name))
+      :hidden    hidden
       :deps      (mapv load-dep deps)
       :generator (with-meta
-                   (world/pick-ref)
-                   {:name "ref"})}]))
+                   (if unique
+                     (world/pick-unique-ref)
+                     (world/pick-ref))
+                   {:name "ref"})}]
+    (load-unique-refs type [ref-name ref])))
 
 (defn load
   "Load configuration and return attrs definition suitable for
@@ -204,11 +209,15 @@
 (defmethod generator "text-from-resource" [{[resource] :arguments}]
   (if resource
     (let [state-space (mc/analyse-text (gen/resource resource))]
-      (fn text-from-resource-aot [_ _]
-        (mc/generate-text state-space)))
-    (fn text-from-resource [_ resource]
+      (fn text-from-resource-aot [_ _ & [lines]]
+        (->> #(mc/generate-text state-space)
+             (repeatedly (or lines 3))
+             (s/join " "))))
+    (fn text-from-resource [_ resource & [lines]]
       (let [state-space (mc/analyse-text (gen/resource resource))]
-        (mc/generate-text state-space)))))
+        (->> #(mc/generate-text state-space)
+             (repeatedly (or lines 3))
+             (s/join " "))))))
 
 (defmethod generator "lorum-ipsum" [_]
   (let [state-space (mc/analyse-text (gen/resource "nl/surf/demo_data/lorum-ipsum.txt"))]
@@ -218,7 +227,12 @@
            (s/join " ")))))
 
 (defmethod generator "inc" [_]
-  (fn inc [_ v] (clojure.core/inc v)))
+  (fn inc [_ v]
+    (+ (clojure.core/inc v) world/*retry-attempt-nr*)))
+
+(defmethod generator "dec" [_]
+  (fn dec [_ v]
+    (- (clojure.core/dec v) world/*retry-attempt-nr*)))
 
 (defmethod generator "first-weekday-of" [_]
   (fn first-weekday-of [_ weekday month year]
@@ -247,7 +261,7 @@
 
 (defmethod generator "join" [_]
   (fn join [world & xs]
-    (->> xs (filter identity) (s/join " "))))
+    (->> xs (map str) (filter (complement s/blank?)) (s/join " "))))
 
 (defmethod generator "date" [_]
   (fn date [world lo hi]
