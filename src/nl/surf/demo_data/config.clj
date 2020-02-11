@@ -15,7 +15,8 @@
 
 (ns nl.surf.demo-data.config
   (:refer-clojure :exclude [load])
-  (:require [clojure.string :as s]
+  (:require [cheshire.core :as json]
+            [clojure.string :as s]
             [nl.surf.demo-data.constraints :as constraints]
             [nl.surf.demo-data.date-util :as date-util]
             [nl.surf.demo-data.generators :as gen]
@@ -130,6 +131,26 @@
                  (into (map (partial load-attr name) attributes))
                  (into (mapcat (partial load-ref name) refs))))
       attrs)))
+
+(letfn [(keywordize-keys [v depth]
+          (if (pos? depth)
+            (->> v
+                 (map (fn [[k v]]
+                        [(keyword k)
+                         (if (map? v)
+                           (keywordize-keys v (dec depth))
+                           v)]))
+                 (into {}))
+            v))]
+  (defn load-json
+    "Load configuration from JSON string and return attrs definition suitable for
+  `nl.surf.demo-data.world/gen`."
+    [data]
+    (-> data
+        (json/parse-string)
+        (keywordize-keys 1)
+        (update :types (fn [types] (mapv #(keywordize-keys % 3) types)))
+        (load))))
 
 ;;;;;;;;;;;;;;;;;;;;
 

@@ -37,7 +37,7 @@
 
 (defn load-config
   [schema]
-  (config/load (json/parse-string (slurp schema) keyword)))
+  (-> schema (slurp) (config/load-json)))
 
 (defn generate
   [schema population & [out]]

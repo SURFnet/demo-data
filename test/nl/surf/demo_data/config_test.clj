@@ -1,6 +1,7 @@
 (ns nl.surf.demo-data.config-test
   (:refer-clojure :exclude [load])
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [cheshire.core :as json]
+            [clojure.test :refer [deftest is testing]]
             [nl.surf.demo-data.config :as sut]))
 
 (deftest load
@@ -64,3 +65,15 @@
         (is (fn? (-> attrs first :generator)))
         (is (= #{"unique-refs" "that-other/other" "that-other/that"}
                (->> attrs (map :generator) (map meta) (map :name) set)))))))
+
+(deftest load-json
+  (testing "generator with object argument"
+    (let [attr (-> {:types [{:name       "this"
+                             :attributes {:att {:generator ["weighted" {"foo" 1, "bar" 2}]}}}]}
+                   json/generate-string
+                   sut/load-json
+                   first)]
+      (is (= :this/att (:name attr)))
+      (is (-> attr :generator fn?))
+      (is (= "weighted" (-> attr :generator meta :name)))
+      (is (= [{"foo" 1, "bar" 2}] (-> attr :generator meta :arguments))))))
