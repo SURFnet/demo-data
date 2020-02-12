@@ -112,8 +112,6 @@
 
 *** Refs
 
-    *Warning*: this part of the toolkit is still very rough around the edges!
-
     Refs are just special attributes to define relationships between types.
     They are /hidden/ by default, cause they have a shape which is almost
     always considered "internal" to this library and another attribute is most
@@ -126,10 +124,19 @@
       From the /person/ ~"refs"~ in the [[file:doc/cats-schema.json][cats example]]:
 
       #+BEGIN_SRC json
-      "cat": {
-        "deps": ["cat/name"]
-      }
-      #+END_SRC
+      {
+        "types": [
+          ...
+          {
+            "name": "person",
+            ...
+            "refs": {
+              ...
+              "cat": {
+                "deps": ["cat/name"]
+              },
+              ...
+        #+END_SRC
 
       Here a person is associated with a random cat using the cat's
       name as a key.  This will create a (hidden by default) foreign
@@ -141,12 +148,21 @@
       From the /person/ ~"attributes"~ in the [[file:doc/cats-schema.json][cats example]]:
 
       #+BEGIN_SRC json
-      "dilemma": {
-        "deps": ["person/name",
-                 ["person/cat", "cat/name"],
-                 ["person/cat", "cat/favorite"]],
-        "generator": ["format", "%s loves %s but %2$s loves %s"]
-      }
+      {
+        "types": [
+          ...
+          {
+            "name": "person",
+            ...
+            "attributes": {
+              ...
+              "dilemma": {
+                "deps": ["person/name",
+                         ["person/cat", "cat/name"],
+                         ["person/cat", "cat/favorite"]],
+                "generator": ["format", "%s loves %s but %2$s loves %s"]
+              },
+              ...
       #+END_SRC
 
     - one-to-one
@@ -155,15 +171,19 @@
       selected values must be unique.
 
       #+BEGIN_SRC json
-        {
+      {
+        "types": [
+          ...
+          {
             "name": "person",
+            ...
             "refs": {
-                "cat": {
-                    "deps": ["cat/name"],
-                    "unique": true
-                }
-            }
-        }
+              ...
+              "cat": {
+                "deps": ["cat/name"],
+                  "unique": true
+                },
+                ...
       #+END_SRC
 
       This will result in a one-to-one relation provided both persons
@@ -175,10 +195,19 @@
       side.  Similar to the the /fed-by/ ~"refs"~ in the [[file:doc/cats-schema.json][cats example]]:
 
       #+BEGIN_SRC json
-      "pair": {
-        "deps": ["cat/name", "person/name"],
-        "attributes": ["cat", "person"]
-      }
+      {
+        "types": [
+          ...
+          {
+            "name": "person",
+            ...
+            "refs": {
+              ...
+              "pair": {
+                "deps": ["cat/name", "person/name"],
+                "attributes": ["cat", "person"]
+              },
+              ...
       #+END_SRC
 
       This /ref/ yields two attributes as named above associated to the given
@@ -199,12 +228,18 @@
       a match on the referenced attribute:
 
       #+BEGIN_SRC json
-      "attributes": {
-          ...
-          "fed-by": {
-              "deps": [[["fed-by/cat", "cat/name"], "fed-by/person", "person/name"]]
-          }
-      }
+      {
+        "types": [
+          {
+            ...
+            "name": "person",
+            ...
+            "attributes": {
+              ...
+              "fed-by": {
+                "deps": [[["fed-by/cat", "cat/name"], "fed-by/person", "person/name"]]
+              },
+              ...
       #+END_SRC
 
     The ~cat/fed-by~ property will get as a value the list of zero or
