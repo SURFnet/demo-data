@@ -504,7 +504,8 @@
 
    #+BEGIN_SRC sh
      java -jar target/demo-data-standalone.jar bootstrap \
-       path-to-swagger.json demodata-schema.json demodata-population.json
+       doc/ooapo-swagger.json \
+       generated/ooapi-schema.json generated/ooapi-population.json
    #+END_SRC
 
    This will create two files, ~demodata-schema.json~ and
