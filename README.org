@@ -511,8 +511,15 @@
    #+END_SRC
 
    This will create two files, ~demodata-schema.json~ and
-   ~demodata-population.json~, for you to start generating demo data for you
-   project.
+   ~demodata-population.json~, for you to edit and start generating
+   demo data for your project.
+
+   You can generate data using:
+
+   #+BEGIN_SRC sh
+     java -jar target/demo-data-standalone.jar generate \
+       generated/ooapi-schema.json generated/ooapi-population.json
+   #+END_SRC
 
 ** License
 
