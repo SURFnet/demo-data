@@ -14,7 +14,7 @@
 ;; with this program. If not, see http://www.gnu.org/licenses/.
 
 (ns nl.surf.demo-data.generators
-  (:refer-clojure :exclude [char int format])
+  (:refer-clojure :exclude [char int format float boolean])
   (:require [clojure.core :as core]
             [clojure.data.generators :as gen]
             [clojure.java.io :as io]
@@ -34,6 +34,12 @@
   (fn string [_]
     (gen/string)))
 
+(defn boolean
+  "Build a generator to pick random boolean values"
+  []
+  (fn boolean [_]
+    (gen/boolean)))
+
 (defn int
   "Build a generator to pick a integer uniformly distributed between `lo` and
   `hi`, both inclusive."
@@ -43,6 +49,16 @@
   ([lo hi]
    (fn int-2[_]
      (gen/uniform lo (inc hi)))))
+
+(defn float
+  "Build a generator to pick a integer uniformly distributed between `lo` and
+  `hi`, both inclusive."
+  ([]
+   (fn float [_]
+     (gen/float)))
+  ([lo hi]
+   (fn float [_]
+     (+ lo (* (- hi lo) (gen/float))))))
 
 (defn bigdec-cubic
   "Build a generator to pick a long distributed between `lo` and `hi`, both

@@ -20,10 +20,21 @@
   (fn [ctx {:strs [type] :as property}]
     type))
 
-
 (defmethod prop->attributes :default
   [{:keys [property-name hidden] :as ctx} {:strs [type] :as prop}]
   [[property-name (cond-> {:generator type}
+                    hidden
+                    (assoc :hidden true))]])
+
+(defmethod prop->attributes "integer"
+  [{:keys [property-name hidden] :as ctx} {:strs [type] :as prop}]
+  [[property-name (cond-> {:generator "int"}
+                    hidden
+                    (assoc :hidden true))]])
+
+(defmethod prop->attributes "number"
+  [{:keys [property-name hidden] :as ctx} {:strs [type] :as prop}]
+  [[property-name (cond-> {:generator "float"}
                     hidden
                     (assoc :hidden true))]])
 

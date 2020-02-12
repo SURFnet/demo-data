@@ -168,6 +168,17 @@
      (when-not (< lo hi) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
      ((gen/int lo hi) world))))
 
+(defmethod generator "float" [_]
+  (fn float
+    ([world] ((gen/float) world))
+    ([world lo hi]
+     (when-not (< lo hi) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
+     ((gen/float lo hi) world))))
+
+(defmethod generator "boolean" [_]
+  (fn boolean
+    ([world] ((gen/boolean) world))))
+
 (defmethod generator "bigdec-cubic" [_]
   (fn bigdec-cubic [world lo hi]
     (when-not (< lo hi) (throw (ex-info "Expected lo < hi" {:lo lo, :hi hi})))
@@ -295,6 +306,8 @@
     (let [lo (date-util/->msecs-since-epoch (date-util/parse-timestamp lo))
           hi (date-util/->msecs-since-epoch (date-util/parse-timestamp hi))]
       (.toInstant (date-util/<-msecs-since-epoch ((gen/int lo hi) world))))))
+
+
 
 ;;;;;;;;;;;;;;;;;;;;
 
