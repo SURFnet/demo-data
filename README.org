@@ -371,7 +371,8 @@
 
    #+BEGIN_SRC sh
      java -jar target/demo-data-standalone.jar generate \
-       demodata-schema.json demodata-population.json output.json
+       doc/cats-schema.json doc/cats-population.json \
+       generated/cats.json
    #+END_SRC
 
    Please note: running *generate* standalone will allow loading resources
