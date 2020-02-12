@@ -15,6 +15,8 @@
 
    - Create standalone jar for command line: ~lein uberjar~
 
+   [[https://github.com/zeekat/surf-demodata/workflows/Clojure%20CI/badge.svg]]
+
 ** Usage
 
    The DemoData toolkit requires two descriptors to generate data:
