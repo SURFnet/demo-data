@@ -1,6 +1,5 @@
 (defproject nl.surf/demo-data "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+  :description "SURFnet DemoData toolkit"
   :dependencies [[hiccup "1.0.5"]
                  [io.forward/yaml "1.0.9" :exclusions [org.flatland/ordered]]
                  [log4j/log4j "1.2.17"]
