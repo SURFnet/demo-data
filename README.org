@@ -16,7 +16,7 @@
    - Create standalone jar for command line: ~lein uberjar~
 
    [[https://github.com/SURFnet/demo-data/workflows/Tests/badge.svg]]
-   [[https://img.shields.io/clojars/v/nl.surf/demo-data.svg]]
+   [[https://clojars.org/nl.surf/demo-data][[[https://img.shields.io/clojars/v/nl.surf/demo-data.svg]]]]
 
 ** Usage
 
