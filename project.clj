@@ -1,4 +1,4 @@
-(defproject nl.surf/demo-data "1.0.0"
+(defproject nl.surf/demo-data "1.0.1"
   :description "SURFnet DemoData toolkit"
   :license {:name "GPLv3"
             :url "https://www.gnu.org/licenses/gpl-3.0.en.html"}
