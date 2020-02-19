@@ -1,5 +1,7 @@
 (defproject nl.surf/demo-data "1.0.0"
   :description "SURFnet DemoData toolkit"
+  :license {:name "GPLv3"
+            :url "https://www.gnu.org/licenses/gpl-3.0.en.html"}
   :url "https://github.com/SURFnet/demo-data"
   :dependencies [[io.forward/yaml "1.0.9" :exclusions [org.flatland/ordered]]
                  [markov-chain "0.1.0"]
