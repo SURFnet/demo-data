@@ -161,6 +161,33 @@
 
 (defmethod generator "string" [_] (gen/string))
 
+(defn filter-for-deps
+  "Returns a predicate suitable to filter enitites based
+  on deps and their values."
+  [deps dep-vals]
+  (let [preds (for [[dep dep-val]
+                    (partition 2 (interleave deps dep-vals))]
+                (let [a (first dep)
+                      v (if (second dep)
+                          [(second dep) dep-val]
+                          dep-val)]
+                  (comp #{v} a)))]
+    (if (empty? deps)
+      (constantly true)
+      (apply every-pred preds))))
+
+(defmethod generator "increasing-int" [_]
+  (fn increasing-int
+    ([{:keys [attr world]} start & dep-vals]
+     (let [attr-name (:name attr)
+           entity-type (-> attr-name namespace keyword)
+           pred (filter-for-deps (:deps attr) dep-vals)
+           entities (filter pred (get world entity-type))
+           ints (map #(get % attr-name (dec start)) entities)]
+       (inc (apply max ints))))
+    ([world]
+     (increasing-int world 0))))
+
 (defmethod generator "int" [_]
   (fn int
     ([world] ((gen/int) world))
