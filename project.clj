@@ -12,5 +12,6 @@
   :resource-paths ["resources" "generated"]
   :profiles {:dev     {:resource-paths ["dev-resources"]}
              :uberjar {:aot :all}}
+  :deploy-repositories [["releases"  {:sign-releases false :url "https://clojars.org/repo"}]]
   :main nl.surf.demo-data
   :uberjar-name "demo-data-standalone.jar")
