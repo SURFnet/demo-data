@@ -15,7 +15,7 @@
 
    - Create standalone jar for command line: ~lein uberjar~
 
-   [[https://github.com/zeekat/surf-demodata/workflows/Clojure%20CI/badge.svg]]
+   [[https://github.com/SURFnet/demo-data/workflows/Tests/badge.svg]]
 
 ** Usage
 
