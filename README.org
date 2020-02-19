@@ -277,6 +277,11 @@
       Generate a integer between the two arguments with a logarithmic biased
       toward the high value.
 
+    - *increasing-int* (takes arguments or none)
+
+      Generate a monotonically increasing integer starting at the given argument.
+      Generated entities are grouped by their deps.
+
     - *bigdec-cubic* (takes 2 arguments)
 
       Generate a bigdecimal between the two arguments with a cubic biased
