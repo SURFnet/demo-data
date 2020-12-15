@@ -139,7 +139,7 @@
                 "deps": ["cat/name"]
               },
               ...
-        #+END_SRC
+      #+END_SRC
 
       Here a person is associated with a random cat using the cat's
       name as a key.  This will create a (hidden by default) foreign
@@ -225,24 +225,54 @@
       many cats to be included as possible, the selection of persons is still
       random.
 
-   - one-to-many
+    - graphs and trees
+
+      References to the same entity type describe graphs. Some options
+      are allowed to specify the kind of graph that can be generated.
+
+      #+BEGIN_SRC json
+      {
+        "types": [
+          ...
+          {
+            "name": "person",
+            ...
+            "refs": {
+              ...
+              "parent": {
+                "deps": ["person/father"],
+                "graph": "tree"
+              },
+              ...
+      #+END_SRC
+
+      When ~graph~ is ~"tree"~, the generated graph is a directed
+      acyclic graph with a single root note that has a nil reference -
+      in this case: ~{"person/father: ["person/name" nil]}~
+
+      When a ~nilabe~ option is provided, this indicates the chance
+      (between 0 and 1) that any generated ref is a nil reference - a
+      new root. Combined with the ~graph: "tree"~ option above this
+      implies a forest of independent trees.
+
+    - one-to-many
 
       If a reference is *to* an entity, the values can be selected via
       a match on the referenced attribute:
 
       #+BEGIN_SRC json
-      {
-        "types": [
-          {
-            ...
-            "name": "person",
-            ...
-            "attributes": {
-              ...
-              "fed-by": {
-                "deps": [[["fed-by/cat", "cat/name"], "fed-by/person", "person/name"]]
-              },
-              ...
+       {
+         "types": [
+           {
+             ...
+             "name": "person",
+             ...
+             "attributes": {
+               ...
+               "fed-by": {
+                 "deps": [[["fed-by/cat", "cat/name"], "fed-by/person", "person/name"]]
+               },
+               ...
       #+END_SRC
 
     The ~cat/fed-by~ property will get as a value the list of zero or

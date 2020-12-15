@@ -107,7 +107,17 @@
                 (iterate inc 0)))))
 
 (defn- load-ref
-  [type [ref-name {:keys [deps hidden unique] :as ref :or {hidden true}}]]
+  [type [ref-name {:keys [deps hidden unique graph nilable] :as ref :or {hidden true}}]]
+  (when graph
+    (when-not (= graph "tree")
+      (throw (ex-info (str  "Unknown graph type `" graph "`")
+                      {:ref      ref
+                       :type     type
+                       :ref-name ref-name}))))
+  (when nilable
+    (when-not (and (number? nilable)
+                   (<= 0 nilable 1))
+      (throw (ex-info (str "nilable must be a number between 0 and 1")))))
   (if (= 1 (count deps))
     [{:name      (keyword type (name ref-name))
       :hidden    hidden
@@ -115,7 +125,8 @@
       :generator (with-meta
                    (if unique
                      (world/pick-unique-ref)
-                     (world/pick-ref))
+                     (world/pick-ref {:graph   (keyword graph)
+                                      :nilable nilable}))
                    {:name "ref"})}]
     (load-unique-refs type [ref-name ref])))
 
@@ -179,11 +190,11 @@
 (defmethod generator "increasing-int" [_]
   (fn increasing-int
     ([{:keys [attr world]} start & dep-vals]
-     (let [attr-name (:name attr)
+     (let [attr-name   (:name attr)
            entity-type (-> attr-name namespace keyword)
-           pred (filter-for-deps (:deps attr) dep-vals)
-           entities (filter pred (get world entity-type))
-           ints (map #(get % attr-name (dec start)) entities)]
+           pred        (filter-for-deps (:deps attr) dep-vals)
+           entities    (filter pred (get world entity-type))
+           ints        (map #(get % attr-name (dec start)) entities)]
        (inc (apply max ints))))
     ([world]
      (increasing-int world 0))))
@@ -298,8 +309,8 @@
     (date-util/nth-weekday-of 0 weekday year month)))
 
 (defmethod generator "last-day-of" [_]
- (fn last-day-of [_ month year]
-   (date-util/last-day-of year month)))
+  (fn last-day-of [_ month year]
+    (date-util/last-day-of year month)))
 
 (defmethod generator "abbreviate" [_]
   (fn abbreviate [_ x]
