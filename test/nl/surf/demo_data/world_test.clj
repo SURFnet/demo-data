@@ -141,6 +141,20 @@
     (is (= "Fred" (get-in world [:person 0 :person/name])))
     (is (= "Fred's cat" (get-in world [:cat 0 :cat/name])))))
 
+(deftest ref-queries
+  (let [mom   {:cat/name   "Mom"
+               :cat/parent nil}
+        kid   {:cat/name   "Kid"
+               :cat/parent [:cat/name "Mom"]}
+        world {:cat [mom kid]}]
+    (is (world/refers-to? [:cat/name "Mom"] mom))
+    (is (not (world/refers-to? [:cat/name "Mom"] kid)))
+
+    (is (= [kid]
+           (world/get-referring-entities world :cat/parent mom)))))
+
+
+
 (deftest test-unique-ref
   (let [attrs #{{:name      :cat/name
                  :generator (fn [{[owner-name] :dep-vals}]
@@ -211,6 +225,34 @@
                (set (map #(get-in % [:owner/refs 0 1]) (:owner world)))))
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No unique refs to.*"
                               (world/gen attrs {:cat 2 :person 2 :owner 5})))))))
+
+(defn- detect-cycle
+  "return cycles in the graph described by ref `attr-name`"
+  [world attr-name]
+  (let [entity-type  (world/attribute-entity-type attr-name)
+        independent? #(nil? (get-in % [attr-name 1]))]
+    (loop [roots (filter independent? (get world entity-type))
+           world  (update world entity-type #(vec (remove independent? %)))]
+      (let [entities (get world entity-type)]
+        (if (empty? entities)
+          false ;; empty set has no cycles
+          (let [next-roots (set (mapcat #(world/get-referring-entities world attr-name %) roots))]
+            (if (seq next-roots)
+              (recur (update world entity-type #(vec (remove next-roots %)))
+                     next-roots)
+              entities))))))) ;; return remaining nodes
+
+(deftest test-tree
+  (let [attrs #{{:name        :cat/name
+                 :generator   (gen/one-of ["Cleo" "Tiger" "Zoe" "Zelda" "Onyx"])
+                 :constraints [constraints/unique]}
+                {:name      :cat/parent
+                 :generator (world/pick-ref {:graph :tree})
+                 :deps      [[:cat/name]]}}
+        world (world/gen attrs {:cat 5})]
+    (is (= 4 (count (keep (comp second :cat/parent) (:cat world))))
+        "One root for a tree")
+    (is (false? (detect-cycle world :cat/parent)))))
 
 (deftest test-joins
   (let [attrs #{{:name        :cat/name

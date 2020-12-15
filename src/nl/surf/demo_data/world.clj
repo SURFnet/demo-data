@@ -29,6 +29,11 @@
   (and (ref? prop)
        (qualified-keyword? (second prop))))
 
+(defn attribute-entity-type
+  "Given an attribute name, return the entity it belongs to."
+  [attr-name]
+  (-> attr-name namespace keyword))
+
 (let [flatten-dep  (fn [dep]
                      (mapcat #(if (vector? %) % [%]) dep))
       flatten-deps (fn [attr] (assoc attr :flat-deps (set (mapcat flatten-dep (:deps attr)))))
@@ -60,21 +65,69 @@
             (throw (ex-info "circular dependency detected" {:attributes dependent}))))))))
 
 (defn- values
-  "All values in world for attribute `attr-name`"
+  "All generated non-nil values in world for attribute `attr-name`"
   [world attr-name]
-  (let [entity-type (-> attr-name namespace keyword)]
+  (let [entity-type (attribute-entity-type attr-name)]
     (keep attr-name (entity-type world))))
 
 (defn pick-ref
-  "Select a random reference to an attribute (from deps) in world"
-  []
-  (fn [{:keys [world] {:keys [name deps]} :attr}]
-    (when-not (and (= 1 (count deps) (count (first deps))))
-      (throw (ex-info (str "Need exactly one direct dependency to create reference for " name)
-                      {:deps deps
-                       :name name})))
-    (let [[[ref-type]] deps]
-      [ref-type (apply data.generators/one-of (values world ref-type))])))
+  "Select a random reference to an attribute (from deps) in world
+
+     (pick-ref options)
+     (pick-ref)
+
+  Options is a map of keywords to values
+
+  * `:graph :tree`
+
+  If option :graph is non-nil the refs should be recursive; the
+  attribute should depend on an attribute of the same entity type, and
+  the refs in the generated world will describe a directed graph.
+
+  If :graph option is :tree, the graph is an acyclic directed tree;
+  there is a single nil reference in the world which describes the value
+  for the tree's root, and there is only a single path between any two
+  nodes in the graph.
+
+  * `:nilable CHANCE`
+
+  If option :nilable is non-nil, the ref has a CHANCE (between 0 and
+  1) of becoming nil.
+
+  If option :nilable and :graph :tree are both specified this implies a
+  forest; the refs describe a collection of unconnected trees.
+  "
+  ([{:keys [graph nilable]}]
+   (fn [{{:keys        [name deps]
+          [[ref-type]] :deps} :attr
+         :keys                [world]}]
+     (when-not (and (= 1 (count deps) (count (first deps))))
+       (throw (ex-info (str "Need exactly one direct dependency to create reference for " name)
+                       {:deps deps
+                        :name name})))
+     (when graph
+       (when-not (= (attribute-entity-type ref-type)
+                    (attribute-entity-type name))
+         (throw (ex-info (str "Graph reference needs to refer to same entity type")
+                         {:deps     deps
+                          :name     name
+                          :ref-type ref-type}))))
+     [ref-type
+      (if (or (and nilable
+                   (< (data.generators/float) nilable))
+              (and (= graph :tree)
+                   (empty? (values world name))))
+        nil
+        (if (= graph :tree)
+          ;; when generating a tree, only create refs to entities that already
+          ;; have a "parent" (or nil) value generated.
+          (apply data.generators/one-of (->> ((attribute-entity-type name) world)
+                                             (filter #(find % name))
+                                             (map ref-type)))
+          ;; for generic graphs, any ref is good, including circular refs and self-refs.
+          (apply data.generators/one-of (values world ref-type))))]))
+  ([]
+   (pick-ref {})))
 
 (defn pick-unique-ref
   "Select a random attribute-value tuple (from deps) that hasn't been
@@ -94,17 +147,32 @@
                          :ref-type ref-type})))
       [ref-type (apply data.generators/one-of free)])))
 
+(defn refers-to?
+  "True if ref refers to entity."
+  [[attr-name value :as ref] entity]
+  (when ref
+    (= (find entity attr-name)
+       ref)))
 
 (defn get-entities
-  "Get all entities with the given attribute - value pair"
-  [world [attr-name value]]
-  (let [entity-type (-> attr-name namespace keyword)]
-    (filter #(= value (attr-name %)) (entity-type world))))
+  "Get all entities with the given attribute - value pair (ref)"
+  [world [attr-name :as ref]]
+  (let [entity-type (attribute-entity-type attr-name)]
+    (filter #(refers-to? ref %) (entity-type world))))
 
 (defn get-entity
   "Get first entity with the given ref (attribute - value pair; assumed to be unique)"
   [world ref]
   (first (get-entities world ref)))
+
+(defn get-referring-entities
+  "Get all entities that refer to `entity` through a ref value for
+  `attr-name`"
+  [world attr-name entity]
+  (let [entity-type (attribute-entity-type attr-name)]
+    (filter #(let [ref (get % attr-name)]
+               (refers-to? ref entity))
+            (entity-type world))))
 
 (let [combinations (fn [world names]
                      (apply combo/cartesian-product (map (fn [name]
@@ -231,7 +299,7 @@
 (defn- gen-attrs
   "Generate all properties for `attr`"
   [world attr]
-  (let [entity-type (-> attr :name namespace keyword)]
+  (let [entity-type (-> attr :name attribute-entity-type)]
     ;; slightly convoluted because we need every call to `gen-attr` to
     ;; have access to the full world-state up till now, including
     ;; previous calls to `gen-attr` for the same attribute (earlier
