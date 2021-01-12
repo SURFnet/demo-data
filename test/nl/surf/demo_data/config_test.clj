@@ -54,6 +54,18 @@
         (is (fn? (-> attrs first :generator)))
         (is (= "ref" (-> attrs first :generator meta :name)))))
 
+    (testing "trees"
+      (let [attr (-> {:types [{:name "this"
+                               :refs {:parent {:deps  ["this/id"]
+                                               :graph "tree"}}}]}
+                     sut/load
+                     first)]
+        (is (= :this/parent (:name attr)))
+        (is (fn? (:generator attr)))
+        (is (= "ref" (-> attr :generator meta :name)))
+        (is (= [:this/id nil] ((:generator attr) {:attr  attr
+                                                  :world {:this [{:this/id 1}]}})))))
+
     (testing "unique"
       (let [attrs (-> {:types [{:name "this"
                                 :refs {:that-other {:unique     true
