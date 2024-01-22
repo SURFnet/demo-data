@@ -4,11 +4,11 @@
             :url "https://www.gnu.org/licenses/gpl-3.0.en.html"}
   :url "https://github.com/SURFnet/demo-data"
   :dependencies [[org.clojure/clojure "1.10.1"]
-                 [org.clojure/data.generators "0.1.2"]
-                 [org.clojure/math.combinatorics "0.1.6"]
+                 [org.clojure/data.generators "1.0.0"]
+                 [org.clojure/math.combinatorics "0.2.0"]
                  [clj-commons/clj-yaml "1.0.27"]
-                 [cheshire/cheshire "5.9.0"]
-                 [markov-chain "0.1.0"]]
+                 [cheshire/cheshire "5.12.0"]
+                 [markov-chain "0.2.0"]]
   :repl-options {:init-ns nl.surf.demo-data.world}
   :resource-paths ["resources" "generated"]
   :profiles {:dev     {:resource-paths ["dev-resources"]}
