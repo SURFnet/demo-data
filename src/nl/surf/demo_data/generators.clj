@@ -20,7 +20,7 @@
             [clojure.java.io :as io]
             [clojure.string :as s]
             [remworks.markov-chain :as mc]
-            [yaml.core :as yaml]))
+            [clj-yaml.core :as yaml]))
 
 (defn uuid
   "Build a generator to pick UUIDs."
