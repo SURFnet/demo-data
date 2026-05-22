@@ -11,7 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    - uses: DeLaGuardo/setup-clojure@13.1
+      with:
+        lein: latest
     - name: Install dependencies
       run: lein deps
     - name: Run tests
@@ -25,7 +28,10 @@ jobs:
       - test
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    - uses: DeLaGuardo/setup-clojure@13.1
+      with:
+        lein: latest
     - name: Deploy to Clojars
       env:
         CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
