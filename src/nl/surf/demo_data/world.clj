@@ -44,9 +44,12 @@
 
   (defn sort-attrs
     "Sort `attrs` to ensure dependencies are met.  Uses Kahn's algorithm, see
-  also: https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm"
+  also: https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm
+
+  Pre-sorts by `:name` so output order — and thus `*rnd*` consumption — is
+  independent of the input collection's iteration order."
     [attrs]
-    (let [attrs* (map flatten-deps attrs)]
+    (let [attrs* (->> attrs (sort-by :name) (map flatten-deps))]
       (doseq [dep (mapcat :flat-deps attrs*)]
         (when-not (some #(= (:name %) dep) attrs*)
           (throw (ex-info (str "dependency on undefined attribute " dep) {:dep dep}))))
@@ -332,7 +335,10 @@
           world))
 
 (defn gen
-  "Generate a world given `attrs` and `pop`."
+  "Generate a world given `attrs` and `pop`.
+
+  Binding `clojure.data.generators/*rnd*` to a seeded `java.util.Random`
+  yields the same world across JVM invocations."
   [attrs pop]
   ;; TODO: check that keys in pop occur in attrs namespaces
   (let [world (reduce (fn [m [type amount]]

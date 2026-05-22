@@ -1,9 +1,31 @@
 (ns nl.surf.demo-data.world-test
-  (:require [clojure.test :refer [are deftest is testing]]
+  (:require [clojure.data.generators :as data.generators]
+            [clojure.test :refer [are deftest is testing]]
             [clojure.string :as string]
+            [nl.surf.demo-data.config :as config]
             [nl.surf.demo-data.generators :as gen]
             [nl.surf.demo-data.world :as world]
             [nl.surf.demo-data.constraints :as constraints]))
+
+(deftest seeded-reproducibility
+  ;; Regression: loader-returned attrs used to land in a PersistentHashSet
+  ;; ordered by closure identity hash, so seeded *rnd* still produced
+  ;; different worlds across independent loads.
+  (let [schema {:types
+                [{:name       "cat"
+                  :attributes {:name     {:generator   ["one-of" ["Cleo" "Lucy" "Oliver" "Tiger"]]
+                                          :constraints ["unique"]}
+                               :favorite {:generator ["one-of" ["fish" "mice" "birds"]]}}}
+                 {:name       "person"
+                  :refs       {:cat {:deps ["cat/name"]}}
+                  :attributes {:name {:generator   ["one-of" ["Fred" "Wilma" "Barney" "Betty"]]
+                                      :constraints ["unique"]}}}]}
+        pop   {:cat 3 :person 3}
+        gen-world #(binding [data.generators/*rnd* (java.util.Random. 42)]
+                     ;; reload attrs each call: fresh closures, fresh hashes
+                     (world/gen (config/load schema) pop))]
+    (is (= (gen-world) (gen-world) (gen-world))
+        "seeded *rnd* must yield identical worlds across independent loads")))
 
 (deftest sort-attrs
   (are [res attrs] (= res (world/sort-attrs attrs))
